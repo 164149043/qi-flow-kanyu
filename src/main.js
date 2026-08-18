@@ -1,6 +1,7 @@
 // main.js —— M3 3D 场景：热力图贴地板 + 默认户型 3D 墙 + 射线拾取注入
 // 左键=放置/选中源/旋转视角(空白拖动)，Shift+左键=平移，滚轮=缩放
 
+import { inject } from '@vercel/analytics';
 import * as THREE from 'three';
 import { HeatmapRenderer } from './core/HeatmapRenderer.js';
 import { SceneManager } from './scene/SceneManager.js';
@@ -28,6 +29,9 @@ const PALACE_LABEL_H = { center: 0.95, side: 0.72 };  // ② 九宫悬浮标签�
 const BAZHAI_LABEL_H = 1.35;                          // ③ 八宅悬浮标签高（八宅扇区上空）
 let palaceScale = 1, bazhaiScale = 1;                 // 盘式缩放（左栏滑块驱动）：palaceScale=九宫分野范围 0.4~1（收向域中心套住户型）；bazhaiScale=八宅扇区半径 0.5~2。高度恒不受影响
 
+
+// ===== Vercel Analytics =====
+inject();
 // ===== 样式 + DOM =====
 const app = document.getElementById('app');
 const style = document.createElement('style');

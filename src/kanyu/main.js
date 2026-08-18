@@ -4,6 +4,7 @@
  * ★ 盘式与户型图共用 layerSize → 自动同尺寸；画布响应式跟随容器。
  */
 import { renderNav } from './nav.js';
+import { inject } from '@vercel/analytics';
 import { bazhaiPan, degToGua } from './core/fengshui/bazhai.js';
 import { yearFeixingPan } from './core/fengshui/feixing-year.js';
 import { xuankongPan, oppositeMountain, BAGUA_BY_NAME } from './core/index.js';
@@ -36,6 +37,9 @@ function drawFloorplanLayer(ctx, img, size = 480) {
 }
 
 const app = document.getElementById('app');
+
+// Initialize Vercel Analytics
+inject();
 app.appendChild(renderNav('kanyu'));
 
 const data = {}; // { bazhai, yearFx, xuankong, score }
