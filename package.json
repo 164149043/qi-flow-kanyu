@@ -1,0 +1,24 @@
+{
+  "name": "airflow-fengshui",
+  "version": "0.1.0",
+  "description": "3D 风水可视化引擎 - Three.js + Navier-Stokes 实时气场模拟",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build --mode kanyu",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lunar-javascript": "^1.6.12",
+    "three": "0.144.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10",
+    "vite-plugin-singlefile": "^2.0.3",
+    "vitest": "^1.6.1"
+  }
+}

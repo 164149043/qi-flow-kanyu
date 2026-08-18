@@ -1,0 +1,159 @@
+/* kanyu.css —— 堪舆页专属样式（P1.5 素绢霁青换皮版）
+ * 自 xunqi 深色原皮换血：对齐 DESIGN.md「炁流风洞」——浅灰留白、霁青刻线、赭金读数、冷蓝灰阴影。
+ * 变量名是语义不动（main.js 里 var() 引用零改动），值全部换血。
+ * Canvas 色在 src/kanyu/palette.js，与本文件同源（改皮两处一起动）。 */
+/* 霞鹜文楷 Lite（盘面刻字/标题点缀用；控件用 system-ui——控件科学、盘面古典）
+   GB2312 常用字子集 ~2MB regular+bold；离线回退 KaiTi */
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont/lxgwwenkailite-regular.css');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont/lxgwwenkailite-bold.css');
+:root {
+  /* 背景层次（素绢系：一层比一层略深，制造无侵略的纵深） */
+  --bg: #eceef2;
+  --panel: rgba(255,255,255,0.88);   /* 毛玻璃面板（backdrop blur 见 .panel） */
+  --panel2: #f5f6f9;
+  --line: #c8ccd4;
+  --line-soft: rgba(43,108,176,0.18);
+
+  /* 主色：赭金=读数、赤金=选中（DESIGN.md 全局约定） */
+  --gold: #c77800;
+  --gold-dim: #a86500;
+  --gold-glow: #d89000;
+
+  /* 文字（墨系） */
+  --text: #333333;
+  --muted: #555555;
+  --muted2: #999999;
+
+  /* 吉凶语义色（压饱和：status-green / alert-red 系） */
+  --luck-da-ji: #1e7a30;
+  --luck-ji: #2a8a3a;
+  --luck-ping: #7888a0;
+  --luck-xiong: #c0392b;
+  --luck-da-xiong: #a93226;
+
+  /* 透明档（main.js 内联引用）：与 palette.js 同源 */
+  --gold-a07: rgba(199,120,0,0.07);
+  --gold-a12: rgba(199,120,0,0.12);
+  --gold-a45: rgba(199,120,0,0.45);
+  --ji-bg: rgba(42,138,58,0.11);
+  --ji-bg-da: rgba(30,122,48,0.16);
+  --ji-a40: rgba(42,138,58,0.40);
+  --xiong-bg: rgba(192,57,43,0.09);
+  --xiong-bg-da: rgba(169,50,38,0.14);
+  --xiong-a40: rgba(192,57,43,0.40);
+  --ping-bg: rgba(120,130,150,0.10);
+
+  /* 字体：控件工装 system-ui；--font-kai 留给盘面刻字与品牌点缀 */
+  --font-kai: "LXGW WenKai Lite", "KaiTi", "STKaiti", "FangSong", "Microsoft YaHei", serif;
+  --font-ui: system-ui, "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+/* 基础重置 + 通用布局 + 导航 */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);   /* 控件科学：操作台用 system-ui */
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a { color: #1a56c4; text-decoration: none; }
+a:hover { color: #4a80d9; }
+
+/* 顶部导航条（跨页通用）：素绢底毛玻璃 */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 5px 24px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.nav .brand {
+  color: #1a56c4;
+  font-family: var(--font-kai);   /* 品牌楷体点缀（东方骨血） */
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  margin-right: 12px;
+}
+.nav a {
+  color: var(--muted);
+  font-size: 15px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.nav a:hover { background: var(--panel2); color: #1a56c4; }
+.nav a.active { color: #1a56c4; background: #e8f0fe; }
+
+/* 页面分段切换器（炁流⇄堪舆 双页同款，2026-08-18 统一入口） */
+.pager {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(6px);
+  padding: 2px;
+}
+.pager a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 16px;
+  border-radius: 999px;
+  transition: background .15s, color .15s;
+}
+.pager a:hover { color: #1a56c4; }
+.pager a.active { background: #2b6cb0; color: #ffffff; }
+
+/* 主容器 */
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+
+/* 通用面板：毛玻璃悬浮层（DESIGN.md panel-source 规格）+ 冷蓝灰阴影 */
+.panel {
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(60,70,90,0.08), 0 4px 14px rgba(60,70,90,0.06);
+}
+
+/* 通用按钮/控件：白底墨字（button-default 规格），hover 霁青边 */
+button {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color .15s, color .15s;
+}
+button:hover { border-color: #4a80d9; color: #1a56c4; }
+
+input[type=number], input[type=text], input[type=date], select {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 15px;
+}
+input[type=range] { accent-color: var(--gold); width: 100%; }
+
+.label { color: var(--muted); font-size: 13px; }
+.muted { color: var(--muted); }
