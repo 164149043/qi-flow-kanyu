@@ -1,6 +1,7 @@
 // main.js —— M3 3D 场景：热力图贴地板 + 默认户型 3D 墙 + 射线拾取注入
 // 左键=放置/选中源/旋转视角(空白拖动)，Shift+左键=平移，滚轮=缩放
 
+import './analytics.js';
 import * as THREE from 'three';
 import { HeatmapRenderer } from './core/HeatmapRenderer.js';
 import { SceneManager } from './scene/SceneManager.js';

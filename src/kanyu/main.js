@@ -3,6 +3,7 @@
  * 原站交互实锤：左侧栏控件，中央 panzoom 画布，5 标签盘式叠加在户型图上。
  * ★ 盘式与户型图共用 layerSize → 自动同尺寸；画布响应式跟随容器。
  */
+import '../analytics.js';
 import { renderNav } from './nav.js';
 import { bazhaiPan, degToGua } from './core/fengshui/bazhai.js';
 import { yearFeixingPan } from './core/fengshui/feixing-year.js';
