@@ -18,16 +18,18 @@ export class SceneManager {
     this.camera.position.set(this.FW * 1.2, this.FW * 1.35, this.FD * 1.6);   // 拉近：模拟域尽量占满取景，建筑外空地好点
     this.camera.lookAt(0, 0, 0);
 
-    // 渲染器
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 渲染器（触屏设备降档：关 AA + dpr 帽 1.5——手机 GPU 全屏 dpr2+AA 会发烫掉帧，2026-08-19 移动适配）
+    const COARSE = matchMedia('(pointer: coarse)').matches;
+    this.renderer = new THREE.WebGLRenderer({ antialias: !COARSE });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, COARSE ? 1.5 : 2));
     container.appendChild(this.renderer.domElement);
 
     // 控制器
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0, 0, this.viewLiftZ());   // PC 居中(0)，手机偏上(FD*0.4 躲 bottom sheet)——断点与 CSS 820px 一致
+    this.controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;   // 鼠标：左键拖=平移（main.js 设 LEFT）、右键=旋转；触摸手势不受影响
     this.controls.maxPolarAngle = Math.PI / 2 - 0.04;  // 不让相机钻到地板下
     this.controls.minDistance = this.FW * 0.3;
     this.controls.maxDistance = this.FW * 8;
@@ -83,6 +85,35 @@ export class SceneManager {
   }
 
   updateHeatTexture() { this.heatTex.needsUpdate = true; }
+
+  /** 相机补间飞抵（easeInOutQuad，~350ms）——俯视/复位视角用，比瞬跳柔和 */
+  viewTo(pos, target, ms = 350) {
+    const p0 = this.camera.position.clone(), t0 = this.controls.target.clone();
+    const p1 = pos.clone(), t1 = target.clone();
+    const start = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - start) / ms);
+      const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      this.camera.position.lerpVectors(p0, p1, e);
+      this.controls.target.lerpVectors(t0, t1, e);
+      this.controls.update();
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /** 正上方整体鸟瞰（站在建筑正上方往下看的俯瞰图）：target=建筑正中心纯居中；z 微偏 5% 防极点奇异定住方位 */
+  viewTop() {
+    this.viewTo(new THREE.Vector3(0, this.FW * 1.55, this.FD * 0.05), new THREE.Vector3(0, 0, 0));
+  }
+
+  /** 视口断点的 target Z 偏移：PC(>820px) 居中；手机偏上躲 bottom sheet（与 CSS 断点一致） */
+  viewLiftZ() { return innerWidth <= 820 ? this.FD * 0.4 : 0; }
+
+  /** 恢复默认斜俯视（与构造时进场位姿一致）——旋转/缩放飞了一键回家 */
+  viewDefault() {
+    this.viewTo(new THREE.Vector3(this.FW * 1.2, this.FW * 1.35, this.FD * 1.6), new THREE.Vector3(0, 0, this.viewLiftZ()));
+  }
 
   resize() {
     const w = window.innerWidth, h = window.innerHeight;

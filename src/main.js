@@ -1,5 +1,5 @@
 // main.js —— M3 3D 场景：热力图贴地板 + 默认户型 3D 墙 + 射线拾取注入
-// 左键=放置/选中源/旋转视角(空白拖动)，Shift+左键=平移，滚轮=缩放
+// 左键=放置/选中源/旋转(默认，视图组「拖拽」可切平移)，右键=旋转，滚轮=缩放；触屏：单指=旋转，双指=缩放/平移
 
 import { inject } from '@vercel/analytics';
 import * as THREE from 'three';
@@ -125,6 +125,36 @@ style.textContent = `
   .pager a{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#555;text-decoration:none;padding:3px 14px;border-radius:999px;transition:background .15s,color .15s}
   .pager a:hover{color:#1a56c4}
   .pager a.active{background:#2b6cb0;color:#fff}
+  /* ===== 移动端抽屉（≤820px）：两栏 bottom sheet 半屏滑出，无遮罩不锁场景，2026-08-19 手机适配 ===== */
+  .m-toolbar{display:none}
+  .sheet-grip{display:none}   /* 把手栏仅移动端 sheet 需要，桌面隐藏 */
+  @media (max-width:820px){
+    .m-toolbar{display:flex;align-items:center;gap:8px;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(255,255,255,.82);backdrop-filter:blur(8px);padding:6px 10px;border-radius:999px;box-shadow:0 2px 10px rgba(60,70,90,.14);max-width:calc(100vw - 16px)}
+    .m-toolbar .pager{padding:0;border:none;background:transparent;backdrop-filter:none;box-shadow:none}
+    .m-toolbar .pager a{padding:4px 10px;font-size:12px}
+    .m-btn{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #c8ccd4;cursor:pointer;flex:none}
+    .m-btn.active{background:#e8f0fe;border-color:#4a80d9}
+    /* bottom sheet：1/3 屏高（多留场景）、半透明（透出建筑与源元素）、内部滚动；场景无遮罩照常操作 */
+    .ctrl-panel,.dp-panel{
+      left:0;right:0;top:auto;bottom:0;width:auto;height:32dvh;min-height:220px;
+      border:none;border-top:1px solid #c8ccd4;border-radius:16px 16px 0 0;
+      background:rgba(255,255,255,.80);backdrop-filter:blur(4px);
+      transform:translateY(102%);transition:transform .28s ease;
+      z-index:30;box-shadow:0 -6px 24px rgba(60,70,90,.25);
+      padding:0 12px 12px;
+    }
+    .ctrl-panel.open,.dp-panel.open{transform:none}
+    .sheet-grip{position:sticky;top:0;z-index:2;background:rgba(255,255,255,.6);padding:8px 0 6px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;user-select:none}
+    .sheet-grip::before{content:'';width:44px;height:5px;border-radius:3px;background:#c8ccd4}
+    .sheet-grip span{font-size:12px;color:#555}
+    .sheet-grip b{color:#1a56c4;font-size:13px;letter-spacing:1px}
+    .ctrl-head{margin-top:2px}
+    .ob-card{width:min(340px,calc(100vw - 24px));bottom:60px}
+    .hint{max-width:calc(100vw - 20px);font-size:11px;padding:5px 10px}
+    .ctrl-head-r .pager{display:none}   /* pager 移动端移至 m-toolbar（重复一套纯链接，零搬移逻辑） */
+    .seg button{padding:5px 8px}
+    .seg .mode-sub{display:none}        /* 模式副标手机省空间 */
+  }
   /* ===== 报告离屏视图（导出 PDF）：对齐堪舆页——html2canvas 分块截图 + jsPDF 直接下载，不走打印对话框 ===== */
   #pdf-report{position:fixed;left:-99999px;top:0;width:720px;background:#fff;font-family:'Microsoft YaHei','PingFang SC',sans-serif;color:#222;padding:8px}
   #pdf-report .sec{padding:4px 0 10px;border-bottom:1px solid #eef0f4;margin-bottom:8px}
@@ -202,9 +232,15 @@ const starWrap = ctrlPanel.querySelector('[data-k="star"]');
 const srcSec = ctrlPanel.querySelector('[data-k="src"]');
 const srcBody = ctrlPanel.querySelector('[data-k="srcBody"]');
 
+// 触屏判定 + 常驻提示词（唯一定义，后续所有 hint 复位复用它——2026-08-19 清理三份硬编码）
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;   // 触屏（手机/平板）：操作提示词与桌面分开（无 Shift/滚轮）
+const HINT_DEFAULT = IS_TOUCH
+  ? `${ICO.flame} <b>3D 风水引擎</b> · 点按=放置/选中源 · 单指拖=旋转 · 双指=缩放/平移`
+  : `${ICO.flame} <b>3D 风水引擎</b> · 左键=放置/选中源 · 左键拖=旋转 · 右键拖=旋转 · 「拖拽」按钮可切平移`;
+
 const hint = document.createElement('div');
 hint.className = 'hint';
-hint.innerHTML = `${ICO.flame} <b>3D 风水引擎</b> · 左键=放置/选中源 · 左键拖=旋转 · Shift+左键=平移 · 滚轮=缩放`;
+hint.innerHTML = HINT_DEFAULT;
 app.appendChild(hint);
 
 // 风场模式工具行（方位/风速已移入罗盘仪器，此处仅留放置工具）
@@ -215,7 +251,8 @@ let curWindDir = 180;    // 环境风向（度）——罗盘沧浪指针拖拽�
 let windSpd = 4;         // 环境风速——罗盘滚轮驱动（风场模式）
 const sendWind = () => {
   const s = envWindOn ? windSpd : 0;
-  worker.postMessage({ type: 'setWind', windDirection: curWindDir, windSpeed: s });
+  const gridDir = (curWindDir - planOffset + 360) % 360;   // 地理风向 → 网格注入角（户型朝向偏移换算；罗盘/面板仍显示地理值）
+  worker.postMessage({ type: 'setWind', windDirection: gridDir, windSpeed: s });
   if (typeof compass !== 'undefined') compass.updateWind(curWindDir);
   if (typeof dataPanel !== 'undefined') dataPanel.updateWind({ dir: curWindDir, spd: envWindOn ? windSpd : 0 });
 };
@@ -252,7 +289,7 @@ ELEM_LIST.forEach(([k, lab]) => {
     if (currentElement === k) b.classList.add('active');
     hint.innerHTML = currentElement
       ? `点击地板放置【${ELEMENT_PROPS[k].label}】· ${ELEMENT_PROPS[k].desc}（再点${lab}取消）`
-      : `${ICO.flame} <b>3D 风水引擎</b> · 左键=放置/选中源 · 左键拖=旋转 · Shift+左键=平移 · 滚轮=缩放`;
+      : HINT_DEFAULT;
   };
   structRow.appendChild(b);
 });
@@ -394,7 +431,7 @@ function addQiPort(g) {
   return p;
 }
 function addWindSrc(g) {
-  const s = { i: g[0], j: g[1], r: 4, strength: 5, bearing: curWindDir };
+  const s = { i: g[0], j: g[1], r: 4, strength: 5, bearing: (curWindDir - planOffset + 360) % 360 };   // 初始向=环境风（地理→网格换算）
   s._vis = makeSourceVisual(0x66ccff, true, 18 * CELL);   // 力场范围圈与发射半径(18格)一致
   updateArrowDir(s._vis, s.bearing);
   const [x, z] = scene3d.gridToWorld(g[0], g[1]);
@@ -522,8 +559,9 @@ function selectSource(obj, arr, type, syncFn) {
   if (type !== 'light' && type !== 'struct') scene3d.controls.enableZoom = false;   // 滚轮让位给调向（光源/五行无方向，保留缩放；三件套有向 ✓）
   showSrcPanel(obj, type);
   const label = srcTypeLabel(selectedSource);
-  const dirTip = (type === 'light' || type === 'struct') ? '' : ` · 滚轮调向(当前${dirName(obj.bearing ?? 180)})`;
-  hint.innerHTML = `已选中【${label}】· 拖动移动${dirTip} · 删除按钮/Shift+Delete 删除 · 点空白取消`;
+  const dirTip = (type === 'light' || type === 'struct') ? '' : (IS_TOUCH ? ` · 左面板滑块调向` : ` · 滚轮调向(当前${dirName(obj.bearing ?? 180)})`);
+  hint.innerHTML = `已选中【${label}】· 拖动移动${dirTip} · 删除按钮${IS_TOUCH ? '' : '/Shift+Delete'}删除 · 点空白取消`;
+  if (IS_TOUCH && typeof setDrawer === 'function' && innerWidth <= 820) setDrawer('ctrl');   // 触屏：源属性滑块在左抽屉里，选中即弹出让用户够得着
 }
 function moveSelectedTo(g) {
   if (!selectedSource) return;
@@ -723,7 +761,7 @@ const mkBtn = (label, m) => {
     if (windRow) windRow.style.display = (m === 'speed') ? '' : 'none';
     if (structRow) structRow.style.display = (m === 'energy') ? '' : 'none';
     if (sunRow) sunRow.style.display = (m === 'light') ? '' : 'none';
-    hint.innerHTML = `${ICO.flame} <b>3D 风水引擎</b> · ${MODE_DRAG_HINT[m]} · 点源球=选中 · 左键拖=旋转 · Shift+左键=平移`;
+    hint.innerHTML = `${ICO.flame} <b>3D 风水引擎</b> · ${MODE_DRAG_HINT[m]} · ${IS_TOUCH ? '点源球=选中 · 单指拖=旋转 · 双指=缩放/平移' : '点源球=选中 · 左键拖=旋转（「拖拽」按钮可切平移）'}`;
   };
   modeSeg.appendChild(b);
 };
@@ -736,6 +774,38 @@ const viewGrp = document.createElement('div'); viewGrp.className = 'ctrl-grp vie
 const uploadBtn = document.createElement('button');
 uploadBtn.innerHTML = ico(ICO.upload, '上传户型图');
 viewGrp.appendChild(uploadBtn);
+// ── 户型朝向对齐（2026-08-19）：上传图"上方 = 实际方位"八选一 ──
+// 原理：建筑网格不动（保流体/采光 mask 完整），转"方位参考系"——地板八宅/九星扇区旋转对齐罗盘，
+// 环境风注入角与太阳方位按 地理−偏移 换算进网格（窗朝南=真朝南晒，北风=真从地理北吹来）。
+let planOffset = +(localStorage.getItem('plan:offset') || 0);   // 度：图上↑ 对应实际方位
+const planDirRow = document.createElement('div');
+planDirRow.className = 'ctrl-grp';
+planDirRow.style.cssText = 'width:100%;margin-top:6px';
+planDirRow.innerHTML = `<div style="font-size:11px;color:#555;margin-bottom:3px">户型朝向（图上↑=实际）<b id="planDirVal" style="color:#c77800;float:right">${dirName(planOffset)}</b></div>`;
+WIND8NAME.forEach((dn, di) => {
+  const b = document.createElement('button');
+  b.className = 'zb';
+  b.textContent = dn;
+  b.title = `户型图上方 = 实际${dn}（${di * 45}°）· 八宅/风场/采光联动`;
+  b.onclick = () => setPlanOffset(di * 45);
+  planDirRow.appendChild(b);
+});
+viewWrap.appendChild(planDirRow);
+function setPlanOffset(deg) {
+  planOffset = ((Math.round(deg) % 360) + 360) % 360;
+  localStorage.setItem('plan:offset', planOffset);
+  planDirRow.querySelectorAll('button').forEach((b, i) => b.classList.toggle('active', i * 45 === planOffset));
+  planDirRow.querySelector('#planDirVal').textContent = dirName(planOffset);
+  // ① 地板八宅/九星扇区 + 悬浮九宫：旋转对齐地理（罗盘是纯地理仪器不转）
+  const rad = planOffset * Math.PI / 180;
+  if (typeof bazhaiPlane !== 'undefined') bazhaiPlane.rotation.z = rad;
+  if (typeof jiuxingPlane !== 'undefined') jiuxingPlane.rotation.z = rad;
+  if (typeof palaceFloatGroup !== 'undefined') palaceFloatGroup.rotation.y = rad;
+  // ② 环境风重发（sendWind 内做 地理→网格 换算）+ ③ 采光太阳方位换算
+  sendWind();
+  worker.postMessage({ type: 'setPlanOffset', deg: planOffset });
+  hint.innerHTML = `${ICO.bazhai} 户型朝向：图上↑ = <b style="color:#c77800">${dirName(planOffset)}（${planOffset}°）</b> · 八宅扇区/风场/采光已联动`;
+}
 let paused = false;
 const resetBtn = document.createElement('button');
 resetBtn.innerHTML = ico(ICO.reset, '重置');
@@ -779,6 +849,38 @@ compassBtn.onclick = () => {
   hint.innerHTML = show ? '罗盘已显示：拖赤金指针=门向 · 沧浪指针=环境风向 · 盘面滚轮=流年/风速' : '罗盘已隐藏';
 };
 viewGrp.appendChild(compassBtn);
+// 俯视/复位视角（旋转飞了一键回家）：视图组（桌面）+ m-toolbar（移动）双按钮同步
+let topViewOn = false;
+const toggleTopView = () => {
+  topViewOn = !topViewOn;
+  topViewOn ? scene3d.viewTop() : scene3d.viewDefault();
+  topBtn.classList.toggle('active', topViewOn);
+  document.getElementById('mTopBtn')?.classList.toggle('active', topViewOn);
+  hint.innerHTML = topViewOn ? '已俯视：盘面全貌（八宅扇区 / 九宫分野）· 再点恢复默认视角' : '视角已复位';
+};
+const topBtn = document.createElement('button');
+topBtn.innerHTML = ico(ICO.screen, '俯视');
+topBtn.title = '俯视盘面全貌 / 恢复默认视角（旋转转晕了一键回家）';
+topBtn.onclick = toggleTopView;
+viewGrp.appendChild(topBtn);
+// 拖拽模式切换：左键拖 = 旋转（默认，3D 观察为主）⇄ 平移（拖画布/建筑整体挪位置）；右键恒=旋转
+let dragMode = 'rotate';   // 'rotate' | 'pan'
+const applyDragMode = () => {
+  scene3d.controls.mouseButtons.LEFT = dragMode === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+  dragBtn.innerHTML = ico(ICO.reset, `拖拽:${dragMode === 'pan' ? '平移' : '旋转'}`);
+  dragBtn.classList.toggle('active', dragMode === 'pan');
+};
+const dragBtn = document.createElement('button');
+dragBtn.title = '左键拖动行为切换：旋转视角 ⇄ 平移画布（右键拖恒为旋转）';
+dragBtn.onclick = () => {
+  dragMode = dragMode === 'rotate' ? 'pan' : 'rotate';
+  applyDragMode();
+  hint.innerHTML = dragMode === 'pan'
+    ? '左键拖=平移画布/建筑 · 右键拖=旋转 · 再点「拖拽」切回旋转'
+    : '左键拖=旋转视角 · 右键拖=旋转 · 再点「拖拽」可切平移挪画布';
+};
+viewGrp.appendChild(dragBtn);
+// applyDragMode() 首调在 scene3d 创建后（此处调用会撞 const TDZ）
 
 // ===== 报告导出：模式快照组 + 气流统计 + 炁场简评 + 布置清单 → jsPDF 直接下载（术数详盘走堪舆页）=====
 const MODE_LABEL = { energy: '炁流（气流浓度）', speed: '风场（风速涡量）', light: '采光（日照体积光）' };
@@ -964,7 +1066,7 @@ pdfBtn.onclick = async () => {
     const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const place = makePlacer(pdf);
     for (const block of rep.querySelectorAll('section.sec, .rp-foot')) {
-      const canvas = await html2canvas(block, { scale: 2, backgroundColor: '#ffffff', logging: false });
+      const canvas = await html2canvas(block, { scale: matchMedia('(pointer: coarse)').matches ? 1.5 : 2, backgroundColor: '#ffffff', logging: false });   // 触屏降采样防 iOS 大 canvas 内存崩
       place(canvas);
     }
     const t = new Date(), pad = (x) => String(x).padStart(2, '0');
@@ -1046,6 +1148,12 @@ jxScaleRow.querySelector('input').oninput = (e) => {
   if (palaceFloatGroup.visible) applyPalaceScale();   // 开着才即时挪盘；worker 泄耗同步
 };
 starWrap.appendChild(jxScaleRow);
+// 流年滑块：罗盘盘面滚轮的面板等价物（手机无滚轮；桌面亦可直调）——2026-08-19 触摸适配
+const jxYearRow = document.createElement('label');
+jxYearRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;color:#555;width:100%;margin-top:4px';
+jxYearRow.innerHTML = `流年<input type="range" id="jxYear" min="1900" max="2100" step="1" value="${jiuxingYear}"><b id="jxYearVal" style="min-width:38px;color:#c77800">${jiuxingYear}</b>`;
+jxYearRow.querySelector('#jxYear').oninput = (e) => setYear(+e.target.value);
+starWrap.appendChild(jxYearRow);
 // （bazhaiRow/yearRow 已并入罗盘仪器，参数行撞车修复 layoutFsRows 不再需要）
 // FPS 计数进左栏标题行（右栏贴边全高后原右上角落被占）
 const fpsEl = document.createElement('span');
@@ -1059,6 +1167,28 @@ pager.innerHTML =
   `<a href="kanyu.html" title="堪舆盘：八宅 / 玄空 / 廿四山 / 年飞星 / 动态九宫 · 户型定盘">堪舆</a>`;
 headR.appendChild(pager);
 headR.appendChild(fpsEl);
+
+// ===== 移动端 bottom sheet（≤820px）：m-toolbar 呼出半屏面板，无遮罩不锁场景；把手栏点击收起（桌面 display:none 零影响）=====
+const mToolbar = document.createElement('div');
+mToolbar.className = 'm-toolbar';
+mToolbar.innerHTML =
+  `<button class="m-btn" id="mCtrlBtn" title="操作台"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>` +
+  `<div class="pager"><a href="index.html" class="active">炁流 3D</a><a href="kanyu.html">堪舆</a></div>` +
+  `<button class="m-btn" id="mTopBtn" title="俯视/复位视角"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/><circle cx="12" cy="12" r="1.6"/></svg></button>` +
+  `<button class="m-btn" id="mDpBtn" title="数据面板"><svg class="icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></button>`;
+app.appendChild(mToolbar);
+const setDrawer = (which) => {   // 'ctrl' | 'dp' | null：单开互斥；无遮罩——场景照常旋转/放置/选中
+  ctrlPanel.classList.toggle('open', which === 'ctrl');
+  document.querySelector('.dp-panel')?.classList.toggle('open', which === 'dp');
+  mCtrlBtn.classList.toggle('active', which === 'ctrl');
+  mDpBtn.classList.toggle('active', which === 'dp');
+};
+const mCtrlBtn = document.getElementById('mCtrlBtn');
+const mDpBtn = document.getElementById('mDpBtn');
+mCtrlBtn.onclick = () => setDrawer(ctrlPanel.classList.contains('open') ? null : 'ctrl');
+mDpBtn.onclick = () => setDrawer(document.querySelector('.dp-panel')?.classList.contains('open') ? null : 'dp');
+document.getElementById('mTopBtn').onclick = toggleTopView;   // 俯视/复位（与视图组按钮同步）
+// sheet 顶部把手栏：注入点见 dataPanel 创建后（dp-panel 那时才存在，两面板统一处理）
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
 fileInput.accept = 'image/*';
@@ -1104,8 +1234,9 @@ const heat = new HeatmapRenderer(heatCanvas, W, H, HSCALE);
 // ===== 3D 场景 + 墙体 =====
 const scene3d = new SceneManager(container, W, H, CELL, heatCanvas);
 scene3d.heatPlane.material.opacity = HEAT_OPACITY[mode];   // 初始模式匹配
-// 镜头操作：左键=旋转、Shift+左键=平移、中键/滚轮=缩放；右键不用。左键对罗盘/源/放置优先（capture 让位）
-scene3d.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null };
+// 镜头操作：左键=旋转/平移（视图组「拖拽」开关切换）、右键=旋转、中键/滚轮=缩放。左键对罗盘/源/放置优先（capture 让位）
+scene3d.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+applyDragMode();   // 按 dragMode 应用左键行为（此处 scene3d 已创建，无 TDZ）
 // 3D 体积能量粒子云（三模式共用：炁流/风场/采光）
 const volFlow = new VolumetricFlow(scene3d.scene, W, H, SW, CELL);
 // 五行结构容器 + 数据
@@ -1368,7 +1499,6 @@ const qiGroup = new THREE.Group(); scene3d.scene.add(qiGroup);
 const windGroup = new THREE.Group(); scene3d.scene.add(windGroup);
 const lightGroup = new THREE.Group(); scene3d.scene.add(lightGroup);
 let placingQi = false, placingWind = false, placingLight = false;
-const HINT_DEFAULT = `${ICO.flame} <b>3D 风水引擎</b> · 左键=放置/选中源 · 点源球=选中 · 左键拖=旋转 · Shift+左键=平移`;
 // 八宅九星叠加层（canvas → 地板纹理，吉凶扇区）
 const bazhaiCanvas = document.createElement('canvas');
 bazhaiCanvas.width = W * HSCALE; bazhaiCanvas.height = H * HSCALE;
@@ -1389,7 +1519,13 @@ const setWindDir = (deg) => {
   hint.innerHTML = `${ICO.wind} 风向 <b style="color:#c77800">${dirName(curWindDir)}</b> · 风速 <b style="color:#c77800">${envWindOn ? windSpd : '关'}</b>`;
   syncWindSliders();
 };
-const setYear = (y) => { jiuxingYear = Math.max(1900, Math.min(2100, y)); if (jiuxingOn) redrawJiuxing(); if (typeof dataPanel !== 'undefined') dataPanel.updateFengshui({ doorFacing, year: jiuxingYear }); };
+const setYear = (y) => {
+  jiuxingYear = Math.max(1900, Math.min(2100, y));
+  if (jiuxingOn) redrawJiuxing();
+  if (typeof dataPanel !== 'undefined') dataPanel.updateFengshui({ doorFacing, year: jiuxingYear });
+  const yr = jxYearRow.querySelector('#jxYear');   // 面板滑块跟随（罗盘滚轮/滑块双向同步）
+  if (yr && document.activeElement !== yr) { yr.value = jiuxingYear; jxYearRow.querySelector('#jxYearVal').textContent = jiuxingYear; }
+};
 const setWindSpd = (s) => {
   windSpd = s; sendWind(); syncWindSliders();
   hint.innerHTML = `${ICO.wind} 风向 <b style="color:#c77800">${dirName(curWindDir)}</b> · 风速 <b style="color:#c77800">${envWindOn ? windSpd : '关'}</b>`;
@@ -1407,6 +1543,15 @@ compass.group.visible = false;   // 罗盘默认隐藏（不挡视线）——�
 
 // 右侧堪舆数据面板（常驻读数层，与罗盘视觉层解耦，五节全展开可折叠）
 const dataPanel = new DataPanel();
+// sheet 顶部把手栏（两面板各一条，点标题收起）：dp-panel 此时已入 DOM，统一注入
+for (const [panel, title] of [[ctrlPanel, '操作台'], [document.querySelector('.dp-panel'), '堪舆数据']]) {
+  if (!panel || panel.querySelector('.sheet-grip')) continue;
+  const grip = document.createElement('div');
+  grip.className = 'sheet-grip';
+  grip.innerHTML = `<b>${title}</b><span>（点击收起）</span>`;
+  grip.onclick = () => setDrawer(null);
+  panel.prepend(grip);
+}
 dataPanel.updateFengshui({ doorFacing, year: jiuxingYear });
 dataPanel.updateSun({ hour: +sunRow.querySelector('#sunHour').value, inten: +sunRow.querySelector('#sunInten').value });
 
@@ -1415,10 +1560,10 @@ dataPanel.updateSun({ hour: +sunRow.querySelector('#sunHour').value, inten: +sun
 function showToast(msg, ico = '🧭') {
   const t = document.createElement('div');
   t.textContent = `${ico} ${msg}`;
-  t.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99;'
+  t.style.cssText = 'position:fixed;bottom:58px;left:50%;transform:translateX(-50%);z-index:99;'   // 底部弹（hint 上方）——顶部让给 m-toolbar/操作台
     + 'background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);border:1px solid #c8ccd4;border-radius:8px;'
     + 'padding:8px 16px;font-size:13px;color:#333;box-shadow:0 2px 8px rgba(60,70,90,0.18);'
-    + 'opacity:0;transition:opacity .35s;pointer-events:none;white-space:nowrap;';
+    + 'opacity:0;transition:opacity .35s;pointer-events:none;white-space:normal;text-align:center;max-width:calc(100vw - 24px);';
   document.body.appendChild(t);
   requestAnimationFrame(() => { t.style.opacity = '1'; });
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 5000);
@@ -1596,6 +1741,7 @@ worker.postMessage(
   { type: 'init', W, H, mode, solid: solidForWorker, glass: glassForWorker },
   [solidForWorker.buffer, glassForWorker.buffer]
 );
+if (planOffset) setPlanOffset(planOffset);   // 恢复上次户型朝向：扇区旋转 + 风光注入换算（此时全场景/worker 已就绪）
 
 let lastDye = null, lastU = null, lastV = null, lastCurl = null, lastT = 0;
 let firstFrameT = 0;   // warm-up：流体首帧时间戳，+1.5s 后罗盘 hero→anchor
@@ -1634,7 +1780,7 @@ const pickGrid = (e) => {
 container.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   // capture 阶段抢在 OrbitControls（监听 canvas）之前设置 LEFT：
-  // 左键+Shift=平移；左键=旋转（空白处）/让位（罗盘指针、源、放置态）
+  // 左键+Shift=平移快捷；左键=旋转（默认）/平移（「拖拽」开关切换）/让位（罗盘指针、源、放置态）
   if (e.shiftKey) { scene3d.controls.mouseButtons.LEFT = THREE.MOUSE.PAN; return; }
   // 罗盘指针优先：命中则交罗盘拖拽，不走放置/选中
   setRay(e);
@@ -1652,7 +1798,7 @@ container.addEventListener('pointerdown', (e) => {
     return;
   }
   if (isPlacing) scene3d.controls.mouseButtons.LEFT = null;   // 放置态：左键让位给放置
-  else scene3d.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE; // 空白：左键拖=旋转视角（单击仍 deselect）
+  else scene3d.controls.mouseButtons.LEFT = dragMode === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;   // 空白：左键拖=旋转/平移（视图组「拖拽」开关切换，右键恒旋转）
   const g = pickGrid(e);
   if (!g) {
     if (isPlacing) hint.innerHTML = '已到模拟域边界（96×80 格）：域外无流体场，请往回收一点';

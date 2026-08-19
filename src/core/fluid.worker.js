@@ -39,6 +39,9 @@ self.onmessage = (e) => {
     case 'setSun':
       if (solver) { solver.sunHour = m.hour; solver.sunInten = m.inten; }
       break;
+    case 'setPlanOffset':   // 户型朝向偏移（度）：采光太阳方位 地理→网格 换算用
+      if (solver) solver.lightOffset = m.deg || 0;
+      break;
     case 'setPalaceDrain':
       if (solver) solver.palaceDrain = m.drain ? new Float32Array(m.drain) : null;
       break;

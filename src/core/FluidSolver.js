@@ -256,7 +256,7 @@ export class FluidSolver {
 
   // 采光模式：南侧落地窗(glass)注入光能 → 扩散 → 衰减（对照原站 light 场，半衰期10s）
   stepLight(dt) {
-    lightFrame(this.f, this.lightPts, this.sunHour, this.sunInten, dt);   // 光线投射（castRay 反射/穿玻璃）
+    lightFrame(this.f, this.lightPts, this.sunHour, this.sunInten, dt, this.lightOffset || 0);   // lightOffset=户型朝向偏移（地理→网格太阳方位）
   }
 
   // 设置五行结构：存结构 + 标记 structMask（结构中心格硬阻挡，对照原站 structMask）

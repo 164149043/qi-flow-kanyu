@@ -48,11 +48,12 @@ function castRay(field, x, y, dx, dz, e) {
 }
 
 // 太阳光线：从落地窗(glass)射入，方向=太阳方位反方向，能量=高度×强度
-function castSunRays(field, glassList, hour, inten, count) {
+// offsetDeg=户型朝向偏移（图上↑对应实际方位）：地理方位角→网格方位角换算，保证窗朝南=真朝南晒
+function castSunRays(field, glassList, hour, inten, count, offsetDeg = 0) {
   if (!glassList.length) return;
   const power = sunAltitude(hour) * inten;
   if (power < 0.02) return;
-  const br = (sunBearing(hour) + 180) * Math.PI / 180;   // 光线行进方向
+  const br = (sunBearing(hour) + 180 - offsetDeg) * Math.PI / 180;   // 光线行进方向（网格系）
   const tdx = Math.sin(br), tdz = -Math.cos(br);
   const baseA = Math.atan2(tdz, tdx);
   for (let n = 0; n < count; n++) {
@@ -74,12 +75,12 @@ function castPointRays(field, lightPts, count) {
 }
 
 // 采光主步进（对照原站 lightFrame）：太阳光 + 点光源光线投射 + 墙清零 + 衰减
-export function lightFrame(field, lightPts, hour, inten, dt) {
+export function lightFrame(field, lightPts, hour, inten, dt, offsetDeg = 0) {
   const { W, H, SW, light, solid, glass } = field;
   // 收集落地窗格
   const glassList = [];
   for (let j = 1; j <= H; j++) for (let i = 1; i <= W; i++) if (glass[i + SW * j]) glassList.push({ i, j });
-  castSunRays(field, glassList, hour, inten, 90);
+  castSunRays(field, glassList, hour, inten, 90, offsetDeg);
   castPointRays(field, lightPts, lightPts.length ? 50 : 0);
   // 墙清零 + 半衰期衰减
   const decay = Math.pow(0.5, dt / LIGHT_HALF_LIFE);

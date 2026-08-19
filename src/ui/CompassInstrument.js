@@ -116,8 +116,31 @@ export class CompassInstrument {
     const head = new THREE.Mesh(new THREE.ConeGeometry(this.R * 0.07, this.R * 0.16, 14), mat());
     head.position.y = len + this.R * 0.07;
     g.add(shaft); g.add(head);
+    // 文字牌（sprite 挂针尖上方，恒面向相机；内容 _setNeedleLabel 动态更新）——指针含义自解释
+    const lcvs = document.createElement('canvas'); lcvs.width = 256; lcvs.height = 104;
+    const ltex = new THREE.CanvasTexture(lcvs);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltex, transparent: true, depthWrite: false }));
+    sprite.position.y = len + this.R * 0.38;
+    sprite.scale.set(this.R * 0.62, this.R * 0.25, 1);
+    g.add(sprite);
     g.userData.isNeedle = true;
+    g.userData.label = { cvs: lcvs, tex: ltex, color: '#' + color.toString(16).padStart(6, '0') };
     return g;
+  }
+  /** 更新针上文字牌：白底圆角 + 针色描边/字（如「门·南 180°」） */
+  _setNeedleLabel(needle, text) {
+    const L = needle.userData.label;
+    if (!L) return;
+    const ctx = L.cvs.getContext('2d');
+    const w = L.cvs.width, h = L.cvs.height, bh = h - 40;
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(6, 20, w - 12, bh, 20); else ctx.rect(6, 20, w - 12, bh);
+    ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.fill();
+    ctx.strokeStyle = L.color; ctx.lineWidth = 4; ctx.stroke();
+    ctx.font = 'bold 38px "Microsoft YaHei"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = L.color; ctx.fillText(text, w / 2, 20 + bh / 2);
+    L.tex.needsUpdate = true;
   }
   _pointNeedle(needle, bearing) {
     const rad = bearing * Math.PI / 180;
@@ -150,14 +173,20 @@ export class CompassInstrument {
     ctx.fillStyle = fill; ctx.fillText(text, x, y);
   }
 
-  // 24 山外环（固定，一次性）
+  // 24 山外环（固定，一次性）。四正位(子午卯酉)换访客友好的「北东南西」大字：北标红，一眼定方向
   _draw24() {
     const ctx = this._ctx(this.ring24);
     ctx.clearRect(0, 0, TEX, TEX);
+    const CARD4 = { 0: '北', 90: '东', 180: '南', 270: '西' };
     for (let i = 0; i < 24; i++) {
       const b = i * 15;
+      const isCard = CARD4[b] != null;
       this._radialLine(ctx, b, 0.80, 1.0, i % 6 === 0 ? '#2b6cb0' : '#8a96aa', i % 6 === 0 ? 3 : 1.4);
-      this._text(ctx, b, 0.91, MOUNTAINS[i], 'bold 19px "Microsoft YaHei"', '#2b6cb0');
+      this._text(ctx, b, 0.91,
+        isCard ? CARD4[b] : MOUNTAINS[i],
+        isCard ? 'bold 32px "Microsoft YaHei"' : 'bold 19px "Microsoft YaHei"',
+        b === 0 ? '#c0392b' : '#2b6cb0',
+        isCard ? 4 : 0);
     }
     this._arc(ctx, 1.0, '#2b6cb0', 2);
     this._arc(ctx, 0.80, '#9aa6ba', 1);
@@ -168,6 +197,7 @@ export class CompassInstrument {
   updateBazhai(doorFacing, bz) {
     this.doorFacing = doorFacing;
     this._pointNeedle(this.needleDoor, doorFacing);
+    this._setNeedleLabel(this.needleDoor, `门·${DIR8[Math.round(doorFacing / 45) % 8]} ${Math.round(doorFacing)}°`);
     const ctx = this._ctx(this.ringBazhai);
     ctx.clearRect(0, 0, TEX, TEX);
     bz.sectors.forEach((sec, di) => {
@@ -198,7 +228,11 @@ export class CompassInstrument {
     this.ringJiuxing.userData.tex.needsUpdate = true;
   }
 
-  updateWind(windDir) { this.windDir = windDir; this._pointNeedle(this.needleWind, windDir); }
+  updateWind(windDir) {
+    this.windDir = windDir;
+    this._pointNeedle(this.needleWind, windDir);
+    this._setNeedleLabel(this.needleWind, `风·${DIR8[Math.round(windDir / 45) % 8]} ${Math.round(windDir)}°`);
+  }
 
   // ===== 可见性（hero 态强制全显当图腾；anchor 态按开关/模式）=====
   setMode(m) {

@@ -62,8 +62,8 @@ wrap.className = 'wrap';
 wrap.style.maxWidth = 'none';   // kanyu 页全宽（画布占大），覆盖 .wrap 的 1180px 限宽
 wrap.style.padding = '14px 22px 24px'; // 左右留白 22px，不贴屏幕边
 wrap.innerHTML = `
-  <div style="display:flex;gap:12px;align-items:stretch;height:calc(100vh - 80px);min-height:580px;">
-    <aside style="width:285px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px;">
+  <div class="kanyu-cols">
+    <aside class="kanyu-aside kanyu-left">
       <div class="panel">
         <div class="label" style="margin-bottom:8px;">户型图底图</div>
         <label style="display:block;text-align:center;padding:14px;border:1px dashed var(--line);border-radius:6px;color:var(--gold);cursor:pointer;font-size:13px;">📁 点击上传户型图<input id="floorInput" type="file" accept="image/*" style="display:none;"></label>
@@ -144,7 +144,7 @@ wrap.innerHTML = `
       <div class="panel" id="scorePanel"></div>
       <div class="panel" id="infoPanel"></div>
     </aside>
-    <main style="flex:1;min-width:0;position:relative;">
+    <main class="kanyu-main">
       <div id="stageWrap" class="panel" style="position:absolute;inset:0;padding:10px;overflow:hidden;">
         <canvas id="stage" style="display:block;width:100%;height:100%;"></canvas>
       </div>
@@ -155,7 +155,7 @@ app.appendChild(wrap);
 
 // 三栏布局：把 罗盘/评分/盘局 从左侧栏迁到紧贴浏览器右侧的独立侧栏（DOM 迁移，不改 HTML 模板）
 const rightAside = document.createElement('aside');
-rightAside.style.cssText = 'width:275px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-left:2px;';
+rightAside.className = 'kanyu-aside kanyu-right';
 const resetBtn = document.createElement('button');
 resetBtn.textContent = '↻ 重置（清格局 · 视图归位）';
 resetBtn.style.cssText = 'padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--gold);font-size:12px;cursor:pointer;font-weight:600;';

@@ -157,3 +157,33 @@ input[type=range] { accent-color: var(--gold); width: 100%; }
 
 .label { color: var(--muted); font-size: 13px; }
 .muted { color: var(--muted); }
+
+/* ===== 三栏布局（桌面）——自 main.js 内联抽离，2026-08-19 移动适配 ===== */
+.kanyu-cols { display: flex; gap: 12px; align-items: stretch; height: calc(100vh - 80px); min-height: 580px; }
+.kanyu-aside { flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.kanyu-left { width: 285px; padding-right: 2px; }
+.kanyu-right { width: 275px; padding-left: 2px; }
+.kanyu-main { flex: 1; min-width: 0; position: relative; }
+
+/* ===== 移动端（≤820px）：单列——画布置顶 62dvh，控制面板顺排滚动 ===== */
+@media (max-width: 820px) {
+  .kanyu-cols { flex-direction: column; height: auto; min-height: 0; }
+  .kanyu-main { order: -1; flex: none; height: 62vh; height: 62dvh; min-height: 420px; }  /* dvh 治手机地址栏收缩，vh 兜底老 iOS */
+  .kanyu-aside { width: 100%; overflow: visible; padding: 0; }
+  .kanyu-left { order: 0; }
+  .kanyu-right { order: 1; }
+
+  /* 顶部导航紧凑化 */
+  .nav { padding: 4px 12px; gap: 10px; }
+  .nav .brand { font-size: 16px; letter-spacing: 1px; }
+  .nav a { font-size: 14px; padding: 6px 10px; }
+
+  /* 页面留白收紧（覆盖 main.js 内联 padding 需 !important） */
+  .wrap { padding: 10px 10px 40px !important; }
+
+  /* 触摸目标加大：按钮 ≥40px 高、滑块加粗打点 */
+  button { min-height: 40px; font-size: 14px; }
+  input[type=range] { height: 34px; }
+  input[type=number] { min-height: 40px; font-size: 16px; }   /* ≥16px 防 iOS 聚焦自动放大 */
+  .label { font-size: 13.5px; }
+}

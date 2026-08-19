@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 
-const PARTICLE_COUNT = 4000;
+const PARTICLE_COUNT = matchMedia('(pointer: coarse)').matches ? 2000 : 4000;  // 触屏减半：手机 GPU 填充率有限（2026-08-19 移动适配）
 const BREATH_SPEED = 1.8;      // 呼吸频率
 const BREATH_AMP = 0.06;       // 呼吸振幅（米）
 const DRIFT_SPEED = 0.3;       // 无风时微漂速度

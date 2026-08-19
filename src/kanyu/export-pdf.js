@@ -334,7 +334,7 @@ export async function exportKanyuPDF({ data, rooms, stage, floorplanImg, innerR 
     const place = makePlacer(pdf);
     const blocks = report.querySelectorAll('section.sec, .detail-db');
     for (let i = 0; i < blocks.length; i++) {
-      const canvas = await html2canvas(blocks[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const canvas = await html2canvas(blocks[i], { scale: matchMedia('(pointer: coarse)').matches ? 1.5 : 2, backgroundColor: '#ffffff', useCORS: true, logging: false });   // 触屏降采样防 iOS 大 canvas 内存崩
       place(canvas);
     }
     pdf.save(`堪舆报告_坐${x.zuoshan}朝${x.chaoxiang}_${x.buildYear}.pdf`);

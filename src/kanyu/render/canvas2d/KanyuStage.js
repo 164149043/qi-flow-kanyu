@@ -137,7 +137,7 @@ export class KanyuStage {
 
   _bindPanZoom() {
     const cv = this.stage.canvas;
-    // 滚轮缩放
+    // 滚轮缩放（桌面）
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
       const f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
@@ -145,25 +145,60 @@ export class KanyuStage {
       if (this.onScaleChange) this.onScaleChange(this.scale);
       this.render();
     }, { passive: false });
-    // 拖拽平移
-    let dragging = false, lx = 0, ly = 0;
-    cv.addEventListener('mousedown', (e) => {
-      dragging = true; lx = e.clientX; ly = e.clientY;
-      this._didDrag = false; // 重置：新一次按下重新判定，移动>3px 才算拖拽；否则上次拖拽后 _didDrag 永真，所有 click 被误杀
-      cv.style.cursor = 'grabbing';
+
+    // 拖拽/捏合：pointer 统一事件（鼠标左键拖 + 触摸单指拖 + 双指捏合缩放）
+    // 触摸适配 2026-08-19：mouse 三件套 → pointer 三件套，一套通吃桌面/手机
+    const pointers = new Map(); // pointerId -> 最新坐标（按压中的手指/鼠标）
+    let pinch = null;           // 双指捏合状态：{ d0, s0, cx, cy }
+    let downX = 0, downY = 0;   // 首指按下点（累计位移判定 _didDrag，慢速微滑也能正确识别为拖拽）
+
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return; // 鼠标只认左键；触摸/笔 button 恒 0
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); // 先记录坐标：capture 失败（合成事件/老 WebView）拖拽照常
+      try { cv.setPointerCapture(e.pointerId); } catch (_) { /* 非激活指针无 capture——不影响拖拽，move 仍派发到 canvas */ }
+      this._didDrag = false; // 重置：新一次按下重新判定；否则上次拖拽后 _didDrag 永真，所有 click 被误杀
+      if (pointers.size === 1) { downX = e.clientX; downY = e.clientY; cv.style.cursor = 'grabbing'; }
+      if (pointers.size === 2) {           // 第二指落下 → 进入捏合
+        const [a, b] = [...pointers.values()];
+        pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y), s0: this.scale, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+      }
     });
-    window.addEventListener('mousemove', (e) => {
-      if (!dragging) return;
-      const dx = e.clientX - lx, dy = e.clientY - ly;
-      if (Math.abs(dx) + Math.abs(dy) > 3) this._didDrag = true; // 移动超阈值=拖拽，抑制后续 click
+
+    const release = (e) => {
+      if (!pointers.delete(e.pointerId)) return;
+      if (pointers.size < 2) pinch = null; // 捏合结束（含双指抬一指回单指：pointers 存的是各指最新坐标，天然无跳变）
+      if (pointers.size === 0) cv.style.cursor = 'grab';
+    };
+    cv.addEventListener('pointerup', release);
+    cv.addEventListener('pointercancel', release); // 系统手势抢走（边缘滑返回等）：清手指，不留死状态
+
+    cv.addEventListener('pointermove', (e) => {
+      const p = pointers.get(e.pointerId);
+      if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX; p.y = e.clientY;
+      if (pinch && pointers.size === 2) {
+        // 双指捏合：scale = 起始scale × 当前指距/起始指距；双指中心位移顺带平移
+        const [a, b] = [...pointers.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        this.scale = clamp(pinch.s0 * (d / (pinch.d0 || 1)), 0.3, 6);
+        const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+        this.offsetX += cx - pinch.cx;
+        this.offsetY += cy - pinch.cy;
+        pinch.cx = cx; pinch.cy = cy;
+        this._didDrag = true; // 捏合同样抑制后续 click
+        if (this.onScaleChange) this.onScaleChange(this.scale);
+        this.render();
+        return;
+      }
+      // 单指/鼠标拖拽平移
       this.offsetX += dx;
       this.offsetY += dy;
-      lx = e.clientX; ly = e.clientY;
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 3) this._didDrag = true; // 累计位移超阈值=拖拽
       this.render();
     });
-    window.addEventListener('mouseup', () => {
-      dragging = false; cv.style.cursor = 'grab';
-    });
+
+    cv.style.touchAction = 'none'; // 触摸拖拽/捏合时禁浏览器默认手势（页面滚动/双击缩放），手势全归画布
     cv.style.cursor = 'grab';
   }
 }
