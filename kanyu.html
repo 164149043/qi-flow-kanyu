@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="favicon.ico" sizes="16x32x48">
 <title>堪舆 · 炁流</title>
-<link rel="stylesheet" href="/src/kanyu/kanyu.css">
+<!-- CSS 异步加载（media=print 不阻塞渲染，到货后切 all）：外链 CSS 会扼住首帧渲染——标题已出画面全白就这病；FOUC 由点火屏全屏遮挡 -->
+<link rel="stylesheet" href="/src/kanyu/kanyu.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/src/kanyu/kanyu.css"></noscript>
 <style>
   /* ===== 点火屏：置于大 JS 之前，流式渲染先画出——白屏期全程陪跑；零 JS，kanyu/main.js 首渲染后淡出移除 */
+  html{background:#f7f4ec}   /* HTML 字节未到时的浏览器默认白底也换成米白 */
   #boot{position:fixed;inset:0;background:#f7f4ec;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;transition:opacity .5s}
   #boot.hide{opacity:0;pointer-events:none}
   .boot-ring{width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,108,176,.16);border-top-color:#2b6cb0;animation:bootspin 1.5s linear infinite}
