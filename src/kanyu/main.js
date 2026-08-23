@@ -1005,3 +1005,10 @@ rerender();
 setTaijiMode(taijiMode); // load 后的盘式（默认后天）
 setCompassMode('luopan');
 updateSky();
+
+// 点火屏退场：盘面首渲染完成（双 rAF 确保像素已上屏）后淡出移除；#boot 由 kanyu.html 提供，零 JS 也能显示慢网提示
+const _boot = document.getElementById('boot');
+if (_boot) requestAnimationFrame(() => requestAnimationFrame(() => {
+  _boot.classList.add('hide');
+  setTimeout(() => _boot.remove(), 600);
+}));

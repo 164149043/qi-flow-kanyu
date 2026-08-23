@@ -1902,12 +1902,22 @@ function loop(now) {
     for (const c of g.children) c.scale.setScalar(pulse);
   }
   scene3d.render();
+  if (!bootDone) { bootDone = true; hideBoot(); }   // 首帧已上屏：点火屏淡出退场
   frames++;
   if (now - fpsT > 500) { fpsEl.textContent = `${Math.round(frames * 1000 / (now - fpsT))} fps`; frames = 0; fpsT = now; }
   if (now - dpT > 200) { if (lastDye && typeof dataPanel !== 'undefined') dataPanel.updateFluid({ dye: lastDye, u: lastU, v: lastV, curl: lastCurl, solid, SW, W, H }); dpT = now; }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// 点火屏退场：#boot 由 index.html 在大 JS 之前渲染（零 JS 也能显示慢网提示），loop 首帧后淡出移除
+let bootDone = false;
+function hideBoot() {
+  const b = document.getElementById('boot');
+  if (!b) return;
+  b.classList.add('hide');
+  setTimeout(() => b.remove(), 600);
+}
 
 // ===== 首次引导（3 步；localStorage 记住看过，URL 带 ?about 可重看）=====
 const OB_KEY = 'qiliu-onboarded';
