@@ -7,6 +7,7 @@ import { HeatmapRenderer } from './core/HeatmapRenderer.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { buildWalls } from './scene/WallBuilder.js';
 import { buildDefaultPlan } from './scene/DefaultPlan.js';
+import LAYOUT_JSON from './scene/default-layout.json';   // 自定义默认布置（null=内置四合院；布置 JSON 直接覆盖此文件即换默认）
 import { PlanEditor } from './ui/PlanEditor.js';
 import { VolumetricFlow } from './core/VolumetricFlow.js';
 import { ELEMENT_PROPS } from './fengshui/Wuxing.js';
@@ -19,7 +20,7 @@ import FluidWorker from './core/fluid.worker.js?worker&inline';   // inline work
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const W = 96, H = 80, HSCALE = 4;
+const W = 150, H = 100, HSCALE = 4;
 const SW = W + 2;
 const CELL = 0.20;
 
@@ -1199,7 +1200,7 @@ app.appendChild(fileInput);
 function applyPlan(solidNew, glassNew) {
   baseSolid = solidNew;
   if (glassNew) baseGlass = glassNew;
-  wallH = 0.85;
+  wallH = 1.95;   // 与门/窗齐平（原 0.85 低墙不挡视线；看室内用俯视/拖拽视角）
   rebuildWalls();
   restampMasks();
   for (const d of doors) rebuildFixtureVis(d);   // 门叶高度体系不随墙缩（1.95 固定），仅位置/朝向重挂
@@ -1219,13 +1220,16 @@ fileInput.onchange = (e) => {
   fileInput.value = '';   // 允许重复选同一文件
 };
 
-// ===== 默认户型（开箱即见）=====
-const plan = buildDefaultPlan(W, H);
+// ===== 默认户型（开箱即见）：default-layout.json 有自定义布置则用之，否则内置四合院 =====
+const b64dec = (str) => { const s = atob(str); const u8 = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) u8[k] = s.charCodeAt(k); return u8; };
+const plan = LAYOUT_JSON
+  ? { solid: b64dec(LAYOUT_JSON.solid), glass: b64dec(LAYOUT_JSON.glass) }
+  : buildDefaultPlan(W, H);
 let baseSolid = plan.solid;      // 户型基础 mask 快照（restamp 源，永不被结构件凿改）
 let baseGlass = plan.glass;
 let solid = plan.solid;          // 当前生效 mask（base + 结构件投影，restampMasks 产出）
 let glass = plan.glass;
-let wallH = 1.3;                 // 当前墙体视觉高（默认 1.3；上传户型后 0.85）
+let wallH = 1.95;                // 当前墙体视觉高（2026-08-23 与门/窗 1.95 齐平；默认与上传户型同高）
 
 // ===== 热力图（offscreen canvas → 3D 地板纹理）=====
 const heatCanvas = document.createElement('canvas');
@@ -1236,6 +1240,11 @@ const scene3d = new SceneManager(container, W, H, CELL, heatCanvas);
 scene3d.heatPlane.material.opacity = HEAT_OPACITY[mode];   // 初始模式匹配
 // 镜头操作：左键=旋转/平移（视图组「拖拽」开关切换）、右键=旋转、中键/滚轮=缩放。左键对罗盘/源/放置优先（capture 让位）
 scene3d.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+if (LAYOUT_JSON?.camera) {   // 固化布置自带视角：进场即位（不补间，避免开场飞）
+  scene3d.camera.position.set(LAYOUT_JSON.camera.x, LAYOUT_JSON.camera.y, LAYOUT_JSON.camera.z);
+  scene3d.controls.target.set(LAYOUT_JSON.camera.tx, LAYOUT_JSON.camera.ty, LAYOUT_JSON.camera.tz);
+  scene3d.controls.update();
+}
 applyDragMode();   // 按 dragMode 应用左键行为（此处 scene3d 已创建，无 TDZ）
 // 3D 体积能量粒子云（三模式共用：炁流/风场/采光）
 const volFlow = new VolumetricFlow(scene3d.scene, W, H, SW, CELL);
@@ -1451,6 +1460,50 @@ function addFixture(type, g) {
   FIX[type].arr.push(f);
   restampMasks(true);
   return f;
+}
+// 布置重放（默认布局 JSON 加载用）：清三件套 → 按数据重建（位置/朝向/长度/开关，凿洞随 rebuild 重算）
+function replayFixtures(list) {
+  clearFixtures();
+  for (const fx of list || []) {
+    if (!FIX[fx.type]) continue;
+    const f = addFixture(fx.type, [fx.i, fx.j]);
+    f.bearing = fx.bearing || 0;
+    f.len = fx.len || FIX[fx.type].len;
+    f.open = !!fx.open;
+    rebuildFixtureVis(f);
+  }
+}
+// 源重放（默认布局 JSON 加载用）：炁口/风口/光源清空重建（位置/朝向/强度）
+function replaySources(d) {
+  for (const arr of [qiPorts, windSrcs, lightPts]) {
+    for (const s of arr) s._vis?.removeFromParent();
+    arr.length = 0;
+  }
+  for (const q of d.qi || []) { const p = addQiPort([q.i, q.j]); p.bearing = q.bearing ?? 180; p.amount = q.amount ?? 2; updateArrowDir(p._vis, p.bearing); syncQiPorts(); }
+  for (const s of d.wind || []) { const p = addWindSrc([s.i, s.j]); p.bearing = s.bearing ?? 180; p.strength = s.strength ?? 5; updateArrowDir(p._vis, p.bearing); syncWindSrcs(); }
+  for (const l of d.light || []) { const p = addLightPt([l.i, l.j]); p.strength = l.strength ?? 1.5; syncLightPts(); }
+}
+// 风水层状态重放（默认布局 JSON 加载用）：九星流年/开关/分野缩放 + 八宅开关/扇区缩放
+function replayFengshui(d) {
+  if (d.jiuxing) {
+    if (d.jiuxing.year) setYear(d.jiuxing.year);
+    if (d.jiuxing.scale != null) {
+      palaceScale = d.jiuxing.scale;
+      const s = jxScaleRow.querySelector('input');
+      if (s) { s.value = palaceScale; jxScaleRow.querySelector('#jxScaleVal').textContent = '×' + palaceScale.toFixed(2); }
+      if (palaceFloatGroup.visible) applyPalaceScale();
+    }
+    if (d.jiuxing.on !== jiuxingOn) jiuxingBtn.click();
+  }
+  if (d.bazhai) {
+    if (d.bazhai.scale != null) {
+      bazhaiScale = d.bazhai.scale;
+      const s = bzScaleRow.querySelector('input');
+      if (s) { s.value = bazhaiScale; bzScaleRow.querySelector('#bzScaleVal').textContent = '×' + bazhaiScale.toFixed(1); }
+      if (bazhaiPlane.visible) applyBazhaiScale();
+    }
+    if (d.bazhai.on !== bazhaiOn) bazhaiBtn.click();
+  }
 }
 function clearFixtures() {
   for (const key of ['screen', 'door', 'window']) {
@@ -1742,6 +1795,13 @@ worker.postMessage(
   [solidForWorker.buffer, glassForWorker.buffer]
 );
 if (planOffset) setPlanOffset(planOffset);   // 恢复上次户型朝向：扇区旋转 + 风光注入换算（此时全场景/worker 已就绪）
+if (LAYOUT_JSON) {   // 自定义默认布置：朝向随 JSON（覆盖 localStorage 记忆）+ 门窗屏风/源/风水层重放
+  setPlanOffset(LAYOUT_JSON.planOffset || 0);
+  if (LAYOUT_JSON.fixtures?.length) replayFixtures(LAYOUT_JSON.fixtures);
+  replaySources(LAYOUT_JSON);
+  replayFengshui(LAYOUT_JSON);
+  restampMasks(true);
+}
 
 let lastDye = null, lastU = null, lastV = null, lastCurl = null, lastT = 0;
 let firstFrameT = 0;   // warm-up：流体首帧时间戳，+1.5s 后罗盘 hero→anchor
