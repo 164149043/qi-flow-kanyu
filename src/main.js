@@ -186,6 +186,7 @@ const ICO = {
   qi: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2"/></svg>',
   lamp: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>',
   upload: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M12 3v12M7 8l5-5 5 5"/></svg>',
+  download: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M12 15V3M7 10l5 5 5-5"/></svg>',
   reset: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 4v4h4"/></svg>',
   pause: '<svg class="icon" viewBox="0 0 24 24"><rect x="7" y="5" width="3" height="14" rx="0.5"/><rect x="14" y="5" width="3" height="14" rx="0.5"/></svg>',
   play: '<svg class="icon" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
@@ -1079,6 +1080,125 @@ pdfBtn.onclick = async () => {
   }
 };
 reportGrp.appendChild(pdfBtn);
+
+// ===== 方案导入/导出（2026-08-18 恢复：全场景状态 .json——墙体 mask+结构件+源+参数+镜头）=====
+const rleEncode = (arr) => { const out = []; let v = arr[0], n = 0; for (const x of arr) { if (x === v) n++; else { out.push(v, n); v = x; n = 1; } } out.push(v, n); return out; };
+const rleDecode = (rle, len) => { const out = new Uint8Array(len); let k = 0; for (let x = 0; x < rle.length; x += 2) out.fill(rle[x], k, k += rle[x + 1]); return out; };
+
+function serializePlan() {
+  const cam = scene3d.camera, ct = scene3d.controls.target;
+  return {
+    ver: 2, W, H, SW,
+    // 墙体（识别/手绘后的基础 mask，RLE 压缩）
+    baseSolid: rleEncode(baseSolid), baseGlass: rleEncode(baseGlass), wallH,
+    // 结构件（贴墙凿洞语义在恢复时由 restampMasks 重放）
+    screens: screens.map(({ i, j, bearing, len }) => ({ i, j, bearing, len })),
+    doors: doors.map(({ i, j, bearing, len, open }) => ({ i, j, bearing, len, open })),
+    windows: windows.map(({ i, j, bearing, len, open }) => ({ i, j, bearing, len, open })),
+    // 源
+    qiPorts: qiPorts.map(({ i, j, bearing, amount }) => ({ i, j, bearing, amount })),
+    windSrcs: windSrcs.map(({ i, j, bearing, strength }) => ({ i, j, bearing, strength })),
+    lightPts: lightPts.map(({ i, j, strength }) => ({ i, j, strength })),
+    structs: structs.map(({ i, j, element, strength }) => ({ i, j, element, strength })),
+    // 参数与状态
+    doorFacing, curWindDir, windSpd, jiuxingYear, mode,
+    palaceScale, bazhaiScale, bazhaiOn, jiuxingOn,
+    // 镜头
+    camera: { pos: [cam.position.x, cam.position.y, cam.position.z], target: [ct.x, ct.y, ct.z] },
+  };
+}
+
+// 恢复序（经验版）：清场 → 墙 mask → 参数(bearing 链) → 模式(真实 click 复用副作用) → 结构件/源 add 后覆写+sync → 缩放 → 开关同步 → 镜头
+function loadPlan(plan) {
+  if (!plan || plan.ver !== 2 || plan.W !== W || plan.H !== H) { showToast('方案不匹配（画布/版本不符），导入取消', '⚠️'); return false; }
+  try {
+    clearFixtures();
+    clearSources(qiGroup, qiPorts, 'setQiPorts', 'ports', 'dye');
+    clearSources(windGroup, windSrcs, 'setWindSrcs', 'srcs');
+    clearSources(lightGroup, lightPts, 'setLightPts', 'pts');
+    clearSources(structGroup, structs, 'setStructs', 'structs');
+    // 墙体 mask + 墙视觉
+    baseSolid = rleDecode(plan.baseSolid, baseSolid.length);
+    baseGlass = rleDecode(plan.baseGlass, baseGlass.length);
+    wallH = plan.wallH ?? 1.3;
+    rebuildWalls(); restampMasks(true);
+    // 参数
+    setYear(plan.jiuxingYear ?? 2026);
+    setDoorFacing(plan.doorFacing ?? 180);
+    curWindDir = plan.curWindDir ?? 180; windSpd = plan.windSpd ?? 4;
+    sendWind(); syncWindSliders();
+    if (plan.mode && plan.mode !== mode) clickModeBtn(plan.mode);
+    // 结构件：add（默认参数）后覆写 bearing/len/open → rebuildFixtureVis 重建几何
+    for (const s of plan.screens || []) { const f = addFixture('screen', [s.i, s.j]); f.bearing = s.bearing; f.len = s.len; setFixtureBearing(f); rebuildFixtureVis(f); }
+    for (const d of plan.doors || []) { const f = addFixture('door', [d.i, d.j]); f.bearing = d.bearing; f.len = d.len; f.open = d.open; setFixtureBearing(f); rebuildFixtureVis(f); }
+    for (const w of plan.windows || []) { const f = addFixture('window', [w.i, w.j]); f.bearing = w.bearing; f.len = w.len; f.open = w.open; setFixtureBearing(f); rebuildFixtureVis(f); }
+    // 源：add 后覆写 + 箭头朝向 + sync
+    for (const q of plan.qiPorts || []) { const p = addQiPort([q.i, q.j]); p.bearing = q.bearing; p.amount = q.amount; updateArrowDir(p._vis, p.bearing); syncQiPorts(); }
+    for (const w of plan.windSrcs || []) { const s = addWindSrc([w.i, w.j]); s.bearing = w.bearing; s.strength = w.strength; updateArrowDir(s._vis, s.bearing); syncWindSrcs(); }
+    for (const l of plan.lightPts || []) { const p = addLightPt([l.i, l.j]); p.strength = l.strength; syncLightPts(); }
+    for (const st of plan.structs || []) { const s = addStruct(st.i, st.j, st.element); s.strength = st.strength; sendStructs(); }
+    // 盘式缩放（滑块 UI + 场景）
+    palaceScale = plan.palaceScale ?? 1; bazhaiScale = plan.bazhaiScale ?? 1;
+    document.querySelector('#jxScaleVal') && (document.querySelector('#jxScaleVal').textContent = '×' + palaceScale.toFixed(2));
+    const bzVal = document.querySelector('#bzScaleVal'); if (bzVal) bzVal.textContent = '×' + bazhaiScale.toFixed(1);
+    const jxInp = [...document.querySelectorAll('label')].find((l) => l.textContent.includes('九宫分野'))?.querySelector('input');
+    const bzInp = [...document.querySelectorAll('label')].find((l) => l.textContent.includes('盘式大小'))?.querySelector('input');
+    if (jxInp) jxInp.value = palaceScale; if (bzInp) bzInp.value = bazhaiScale;
+    // 风水层开关同步（真实 click 复用全部副作用：redraw/worker 泄耗/罗盘）
+    if (!!plan.bazhaiOn !== bazhaiOn) bazhaiBtn.click();
+    if (!!plan.jiuxingOn !== jiuxingOn) jiuxingBtn.click();
+    else if (jiuxingOn) redrawJiuxing();   // 已开：按新分野/流年重放泄耗+盘
+    if (bazhaiOn) applyBazhaiScale();
+    // 镜头
+    if (plan.camera) {
+      scene3d.camera.position.set(...plan.camera.pos);
+      scene3d.controls.target.set(...plan.camera.target);
+      scene3d.controls.update();
+    }
+    return true;
+  } catch (err) {
+    console.error('loadPlan', err);
+    showToast('方案解析失败：' + err.message, '⚠️');
+    return false;
+  }
+}
+
+const saveBtn = document.createElement('button');
+saveBtn.innerHTML = ico(ICO.download, '导出方案');
+saveBtn.title = '把当前局（墙体+门窗屏风+炁口风口光源五行+参数+镜头）存为 .json';
+saveBtn.onclick = () => {
+  const blob = new Blob([JSON.stringify(serializePlan())], { type: 'application/json' });
+  const t = new Date(), pad = (x) => String(x).padStart(2, '0');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `炁流方案_${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}_${pad(t.getHours())}${pad(t.getMinutes())}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  hint.innerHTML = '方案已导出（.json）';
+};
+reportGrp.appendChild(saveBtn);
+
+const planInput = document.createElement('input');
+planInput.type = 'file';
+planInput.accept = 'application/json,.json';
+planInput.style.display = 'none';
+planInput.onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';   // 同文件可重复导入
+  if (!file) return;
+  try {
+    const plan = JSON.parse(await file.text());
+    if (loadPlan(plan)) showToast(`方案已载入：${plan.doors?.length || 0}门 ${plan.windows?.length || 0}窗 ${plan.screens?.length || 0}屏风 · ${(plan.qiPorts?.length || 0) + (plan.windSrcs?.length || 0) + (plan.lightPts?.length || 0) + (plan.structs?.length || 0)}源`, '📦');
+  } catch (err) {
+    showToast('不是有效的方案文件：' + err.message, '⚠️');
+  }
+};
+document.body.appendChild(planInput);
+const loadBtn = document.createElement('button');
+loadBtn.innerHTML = ico(ICO.upload, '导入方案');
+loadBtn.title = '载入 .json 方案，整场替换当前布置';
+loadBtn.onclick = () => planInput.click();
+reportGrp.appendChild(loadBtn);
 
 // sep2 省略
 // 簇 3：风水层开关
