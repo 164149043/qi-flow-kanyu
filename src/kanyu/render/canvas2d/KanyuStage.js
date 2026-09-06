@@ -135,9 +135,24 @@ export class KanyuStage {
     }
   }
 
+  /** 手绘模式：单指/左键让位给画笔（onDraw 回调），滚轮缩放保留、双指捏合保留（触屏单指画/双指缩） */
+  setDrawMode(v) {
+    this.drawMode = !!v;
+    this.stage.canvas.style.cursor = v ? 'crosshair' : 'grab';
+  }
+  /** 屏幕坐标 → 手绘层盘式坐标（rotate 层：/scale 后逆旋转 rotation——手绘线随户型图转，画点换算必须含逆旋，否则画布旋转后落笔错位） */
+  screenToRotateLayer(clientX, clientY) {
+    const rect = this.stage.canvas.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    const sx = (x - (this.w / 2 + this.offsetX)) / this.scale;
+    const sy = (y - (this.h / 2 + this.offsetY)) / this.scale;
+    const c = Math.cos(-this.rotation), s = Math.sin(-this.rotation);
+    return { x: sx * c - sy * s, y: sx * s + sy * c };
+  }
+
   _bindPanZoom() {
     const cv = this.stage.canvas;
-    // 滚轮缩放（桌面）
+    // 滚轮缩放（桌面；手绘模式下保留——放大细画拐角）
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
       const f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
@@ -151,13 +166,22 @@ export class KanyuStage {
     const pointers = new Map(); // pointerId -> 最新坐标（按压中的手指/鼠标）
     let pinch = null;           // 双指捏合状态：{ d0, s0, cx, cy }
     let downX = 0, downY = 0;   // 首指按下点（累计位移判定 _didDrag，慢速微滑也能正确识别为拖拽）
+    let drawActive = false;     // 手绘中（单指被画笔占用）
+    let drawPointerId = null;
 
     cv.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return; // 鼠标只认左键；触摸/笔 button 恒 0
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); // 先记录坐标：capture 失败（合成事件/老 WebView）拖拽照常
       try { cv.setPointerCapture(e.pointerId); } catch (_) { /* 非激活指针无 capture——不影响拖拽，move 仍派发到 canvas */ }
       this._didDrag = false; // 重置：新一次按下重新判定；否则上次拖拽后 _didDrag 永真，所有 click 被误杀
-      if (pointers.size === 1) { downX = e.clientX; downY = e.clientY; cv.style.cursor = 'grabbing'; }
+      // 手绘模式：首指让位给画笔；第二指落下（触屏想捏合）则取消当前笔画转捏合
+      if (this.drawMode && pointers.size === 1) {
+        drawActive = true; drawPointerId = e.pointerId;
+        this.onDraw?.down?.(e);
+        return;
+      }
+      if (drawActive) { drawActive = false; drawPointerId = null; this.onDraw?.cancel?.(); }
+      if (pointers.size === 1) { downX = e.clientX; downY = e.clientY; cv.style.cursor = this.drawMode ? 'crosshair' : 'grabbing'; }
       if (pointers.size === 2) {           // 第二指落下 → 进入捏合
         const [a, b] = [...pointers.values()];
         pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y), s0: this.scale, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
@@ -165,9 +189,16 @@ export class KanyuStage {
     });
 
     const release = (e) => {
-      if (!pointers.delete(e.pointerId)) return;
+      if (!pointers.has(e.pointerId)) return;
+      pointers.delete(e.pointerId);
+      if (drawActive && e.pointerId === drawPointerId) {   // 画笔抬起 → 笔画定稿
+        drawActive = false; drawPointerId = null;
+        this._didDrag = true;   // 手绘落笔同样抑制后续 click（防误触格局标注/扇区弹窗）
+        this.onDraw?.up?.(e);
+        return;
+      }
       if (pointers.size < 2) pinch = null; // 捏合结束（含双指抬一指回单指：pointers 存的是各指最新坐标，天然无跳变）
-      if (pointers.size === 0) cv.style.cursor = 'grab';
+      if (pointers.size === 0) cv.style.cursor = this.drawMode ? 'crosshair' : 'grab';
     };
     cv.addEventListener('pointerup', release);
     cv.addEventListener('pointercancel', release); // 系统手势抢走（边缘滑返回等）：清手指，不留死状态
@@ -175,6 +206,7 @@ export class KanyuStage {
     cv.addEventListener('pointermove', (e) => {
       const p = pointers.get(e.pointerId);
       if (!p) return;
+      if (drawActive && e.pointerId === drawPointerId) { p.x = e.clientX; p.y = e.clientY; this.onDraw?.move?.(e); return; }
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       p.x = e.clientX; p.y = e.clientY;
       if (pinch && pointers.size === 2) {
