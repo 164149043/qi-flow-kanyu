@@ -67,6 +67,8 @@ wrap.innerHTML = `
       <div class="panel">
         <div class="label" style="margin-bottom:8px;">户型图底图</div>
         <label style="display:block;text-align:center;padding:14px;border:1px dashed var(--line);border-radius:6px;color:var(--gold);cursor:pointer;font-size:13px;">📁 点击上传户型图<input id="floorInput" type="file" accept="image/*" style="display:none;"></label>
+        <button id="sketchBtn" style="width:100%;margin-top:8px;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;">✏ 手绘户型</button>
+        <div id="sketchTools" style="display:none;margin-top:8px;"></div>
         <div id="floorHint" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;">未上传 · 5 标签叠空画布演示</div>
       </div>
       <div class="panel">
@@ -224,6 +226,165 @@ sizeSlider.addEventListener('input', () => {
   stage.plateScale = v; document.getElementById('sizeVal').textContent = (v * 100).toFixed(0) + '%'; stage.render();
 });
 stage.addLayer('户型图', (ctx) => floorplanImg && drawFloorplanLayer(ctx, floorplanImg, layerSize), true, true); // 第4参 rotate=true：只户型图随 rotSlider 转，5 盘式钉死方位
+
+// ===== 手绘户型（2026-08-23 标准档：直线45°吸附/矩形/自由笔/橡皮 + 线宽三档 + 撤销栈30步）=====
+// 线段存盘式坐标（盘心=0,0，rotate 层）：随 rotSlider 转、随 panzoom 缩放、不受 plateScale——对着盘面方位画墙
+const sketch = { on: false, tool: 'line', width: 1, lines: [], undo: [], _draft: null };
+const SKETCH_INK = '#2f3a48';
+function drawSketchLayer(ctx) {
+  if (!sketch.lines.length && !sketch._draft) return;
+  const baseW = Math.max(2, layerSize * 0.006);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = SKETCH_INK;
+  const stroke = (l, ghost) => {
+    ctx.globalAlpha = ghost ? 0.4 : 0.92;
+    ctx.lineWidth = baseW * (l.w || 1);
+    ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+  };
+  sketch.lines.forEach((l) => stroke(l));
+  if (sketch._draft) sketch._draft.preview.forEach((l) => stroke(l, true));   // 拖拽中预览（半透明）
+  ctx.globalAlpha = 1;
+}
+stage.addLayer('手绘', drawSketchLayer, true, true);   // rotate=true：与户型图底图同族，叠其上
+// ── 工具几何（直线/矩形在屏幕空间取形——所见即所得，画布转多少度拖出来的都是正的；定稿映射进旋转层存储，之后随盘面刚性旋转）──
+function snapLineScreen(sx1, sy1, sx2, sy2, free) {   // 屏幕空间 45° 吸附（Alt 按住自由）
+  if (free) return { x: sx2, y: sy2 };
+  const dx = sx2 - sx1, dy = sy2 - sy1, len = Math.hypot(dx, dy) || 1;
+  const snap = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+  return { x: sx1 + Math.cos(snap) * len, y: sy1 + Math.sin(snap) * len };
+}
+function rectLinesScreen(sx1, sy1, sx2, sy2) {   // 屏幕空间正矩形四边 → 旋转层坐标（角点映射，边在仿射变换下仍为直线）
+  const x1 = Math.min(sx1, sx2), x2 = Math.max(sx1, sx2);
+  const y1 = Math.min(sy1, sy2), y2 = Math.max(sy1, sy2);
+  const c = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]].map(([px, py]) => stage.screenToRotateLayer(px, py));
+  return [0, 1, 2, 3].map((k) => ({ x1: c[k].x, y1: c[k].y, x2: c[(k + 1) % 4].x, y2: c[(k + 1) % 4].y }));
+}
+function distToSeg(px, py, l) {   // 点到线段距离（橡皮命中）
+  const dx = l.x2 - l.x1, dy = l.y2 - l.y1;
+  const t = Math.max(0, Math.min(1, ((px - l.x1) * dx + (py - l.y1) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(px - (l.x1 + t * dx), py - (l.y1 + t * dy));
+}
+function trimUndo() { if (sketch.undo.length > 30) sketch.undo.shift(); }
+function eraseAt(p) {
+  const th = 8 / stage.scale;   // 屏幕 8px 命中域（随缩放换算盘式）
+  for (let k = sketch.lines.length - 1; k >= 0; k--) {
+    if (distToSeg(p.x, p.y, sketch.lines[k]) < th) {
+      const [gone] = sketch.lines.splice(k, 1);
+      sketch.undo.push({ type: 'del', lines: [gone] }); trimUndo();
+      saveKanyuState(); stage.render();
+      return;   // 一次擦一条，拖拽连续经过逐条删
+    }
+  }
+}
+function sketchUndo() {   // 撤销：add 从尾删 / del 重新 push 回
+  const op = sketch.undo.pop();
+  if (!op) return;
+  if (op.type === 'add') sketch.lines.length -= op.lines.length;
+  else op.lines.forEach((l) => sketch.lines.push(l));
+  saveKanyuState(); stage.render();
+}
+function sketchClear() {   // 清空（可撤销：按 del 记栈）
+  if (!sketch.lines.length) return;
+  sketch.undo.push({ type: 'del', lines: sketch.lines.slice() }); trimUndo();
+  sketch.lines.length = 0;
+  saveKanyuState(); stage.render();
+}
+// ── 画笔事件（KanyuStage drawMode 让位后路由至此）──
+stage.onDraw = {
+  down(e) {
+    const p = stage.screenToRotateLayer(e.clientX, e.clientY);
+    sketch._sx = p.x; sketch._sy = p.y;
+    sketch._ss = { x: e.clientX, y: e.clientY };   // 屏幕空间起点（直线吸附/矩形取形用）
+    if (sketch.tool === 'pen') sketch._draft = { preview: [], pts: [p] };
+    else if (sketch.tool === 'eraser') eraseAt(p);
+    else sketch._draft = { preview: [] };
+  },
+  move(e) {
+    if (!sketch._draft && sketch.tool !== 'eraser') return;
+    const p = stage.screenToRotateLayer(e.clientX, e.clientY);
+    if (sketch.tool === 'line') {
+      const end = snapLineScreen(sketch._ss.x, sketch._ss.y, e.clientX, e.clientY, e.altKey);
+      const a = stage.screenToRotateLayer(sketch._ss.x, sketch._ss.y);
+      const b = stage.screenToRotateLayer(end.x, end.y);
+      sketch._draft.preview = [{ x1: a.x, y1: a.y, x2: b.x, y2: b.y }];
+      stage.render();
+    } else if (sketch.tool === 'rect') {
+      sketch._draft.preview = rectLinesScreen(sketch._ss.x, sketch._ss.y, e.clientX, e.clientY);
+      stage.render();
+    } else if (sketch.tool === 'pen') {
+      const pts = sketch._draft.pts, last = pts[pts.length - 1];
+      if (Math.hypot(p.x - last.x, p.y - last.y) > 2.5) {   // 采点间距：太密浪费线段
+        pts.push(p);
+        sketch._draft.preview.push({ x1: last.x, y1: last.y, x2: p.x, y2: p.y, w: sketch.width });
+        stage.render();
+      }
+    } else if (sketch.tool === 'eraser') eraseAt(p);
+  },
+  up() {
+    if (!sketch._draft) return;
+    const fin = sketch._draft.preview.filter((l) => Math.hypot(l.x2 - l.x1, l.y2 - l.y1) > 1.5);   // 抖动微线丢弃
+    if (fin.length) {
+      fin.forEach((l) => { l.w = l.w || sketch.width; sketch.lines.push(l); });
+      sketch.undo.push({ type: 'add', lines: fin }); trimUndo();
+      saveKanyuState();
+    }
+    sketch._draft = null;
+    stage.render();
+  },
+  cancel() { sketch._draft = null; stage.render(); },   // 双指捏合抢走：废当前笔画
+};
+// ── 工具条 UI ──
+const sketchBtn = document.getElementById('sketchBtn');
+const sketchTools = document.getElementById('sketchTools');
+const stBtn = (txt, title, fn, getActive) => {
+  const b = document.createElement('button');
+  b.textContent = txt; b.title = title;
+  b.style.cssText = 'flex:1;padding:6px 0;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;min-width:0;';
+  b.onclick = () => { fn(); syncSketchUI(); };
+  b._getActive = getActive;
+  sketchTools.appendChild(b);
+  return b;
+};
+stBtn('直线', '按下拖拽画墙 · 角度自动吸附 45°（按住 Alt 自由角度）', () => { sketch.tool = 'line'; }, () => sketch.tool === 'line');
+stBtn('矩形', '拖拽对角，一次画一间房', () => { sketch.tool = 'rect'; }, () => sketch.tool === 'rect');
+stBtn('笔', '自由手绘（异形墙/弧形）', () => { sketch.tool = 'pen'; }, () => sketch.tool === 'pen');
+stBtn('橡皮', '拖拽经过的线整条删除', () => { sketch.tool = 'eraser'; }, () => sketch.tool === 'eraser');
+stBtn('细', '外墙细线', () => { sketch.width = 1; }, () => sketch.width === 1);
+stBtn('中', '内墙中线', () => { sketch.width = 1.7; }, () => sketch.width === 1.7);
+stBtn('粗', '外墙粗线', () => { sketch.width = 2.6; }, () => sketch.width === 2.6);
+stBtn('撤销', '撤销上一步（Ctrl+Z）· 栈深30', () => sketchUndo(), () => false);
+stBtn('清空', '清空全部手绘线（可撤销）', () => sketchClear(), () => false);
+const sketchTip = document.createElement('div');
+sketchTip.style.cssText = 'font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.5;';
+sketchTip.textContent = '手绘中 · 滚轮/双指=缩放 · 画墙随盘面旋转 · 线与上传底图共存';
+sketchTools.appendChild(sketchTip);
+function syncSketchUI() {
+  [...sketchTools.querySelectorAll('button')].forEach((b) => {
+    b.style.borderColor = b._getActive?.() ? 'var(--gold)' : 'var(--line)';
+    b.style.color = b._getActive?.() ? 'var(--gold)' : 'var(--text)';
+    b.style.fontWeight = b._getActive?.() ? '600' : '400';
+  });
+  sketchBtn.textContent = sketch.on ? '✓ 完成手绘' : '✏ 手绘户型';
+  sketchBtn.style.borderColor = sketch.on ? 'var(--gold)' : 'var(--line)';
+}
+function setSketch(on) {
+  sketch.on = on;
+  stage.setDrawMode(on);
+  sketchTools.style.display = on ? 'grid' : 'none';
+  sketchTools.style.gridTemplateColumns = 'repeat(5, 1fr)';
+  sketchTools.style.gap = '4px';
+  if (!on) { sketch._draft = null; stage.render(); }
+  document.getElementById('floorHint').textContent = on
+    ? `手绘模式 · ${sketch.lines.length} 条线`
+    : (floorplanImg ? '手绘线与底图共存 · 滚轮缩放查看' : (sketch.lines.length ? `手绘 ${sketch.lines.length} 条线` : '未上传 · 5 标签叠空画布演示'));
+  syncSketchUI();
+}
+sketchBtn.onclick = () => setSketch(!sketch.on);
+window.addEventListener('keydown', (e) => {   // Ctrl+Z：手绘模式激活时撤销（不动其他输入框场景）
+  if (sketch.on && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) {
+    e.preventDefault(); sketchUndo();
+  }
+});
+syncSketchUI();
 stage.addLayer('二十四山', (ctx) => data.xuankong && drawM24Layer(ctx, layerSize / 2), false);
 stage.addLayer('大玄空', (ctx) => data.xuankong && drawXuankongLayer(ctx, data.xuankong, layerSize / 3), false);
 stage.addLayer('八宅', (ctx) => { if (!data.bazhai) return; const d = +document.getElementById('doorSlider').value; drawBazhaiRoundLayer(ctx, data.bazhai, degToGua(d), d, layerSize / 2); }, true);
@@ -346,7 +507,9 @@ function saveKanyuState() {
       localStorage.setItem(KANYU_KEY, JSON.stringify({
         doorDir: +document.getElementById('doorSlider').value,
         buildYear: +document.getElementById('yearInput').value || 2010,
-        rooms, roomSeq, taijiMode, baguaRot, layers, ts: Date.now(),
+        rooms, roomSeq, taijiMode, baguaRot, layers,
+        sketch: sketch.lines,   // 手绘线段（盘式坐标矢量，轻量持久化）
+        ts: Date.now(),
       }));
     } catch (e) { /* 隐私模式/存储满 静默 */ }
   }, 300); // 防抖：拖滑块连发 rerender 不狂写
@@ -365,6 +528,10 @@ function loadKanyuState() {
       const brv = document.getElementById('baguaRotVal'); if (brv) brv.textContent = s.baguaRot + '°';
     }
     if (s.taijiMode === '先天' || s.taijiMode === '后天') taijiMode = s.taijiMode;
+    if (Array.isArray(s.sketch)) {   // 手绘线恢复（四坐标有限校验）
+      sketch.lines = s.sketch.filter((l) => l && [l.x1, l.y1, l.x2, l.y2].every(Number.isFinite));
+      if (sketch.lines.length) document.getElementById('floorHint').textContent = `手绘 ${sketch.lines.length} 条线 · 点「手绘户型」继续`;
+    }
     if (s.layers) { // 图层开关恢复（change 事件自带面板显隐/九宫卡/rAF 联动）
       document.querySelectorAll('#layerToggles label').forEach((lbl) => {
         const key = lbl.textContent.trim(), cb = lbl.querySelector('input');
