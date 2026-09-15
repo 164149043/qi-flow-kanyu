@@ -23,10 +23,10 @@ if (detectWebGL()) {
     flowSpeed: 1,
     // 氛围强度拉满（默认 0.55）
     ambientOpacity: 1,
-    // 星系给 UI 让位（center 单位是半个视口，NDC 语义 y 正=上）：
+    // 星系给 UI 让位（center 单位是半个视口，NDC 语义 y 正=上，调大 y = 星系上移）：
     // 桌面中央无文字遮挡，星系回正中放大成唯一主角，核心亮斑与底部卡区拉开；
     // 手机屏矮且卡区占比大，星系收小放进上部空区
-    center: isSmall ? [0, 0.3] : [0, 0.24],
+    center: isSmall ? [0, 0.45] : [0, 0.40],
     fillY: isSmall ? 0.52 : 0.8,
   });
   astra.setSource(
