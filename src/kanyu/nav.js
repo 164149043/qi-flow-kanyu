@@ -1,10 +1,11 @@
 /**
- * nav.js —— 跨页顶部导航（双页版：炁流3D ⇄ 堪舆）
- * 自 xunqi 站 nav.js 改造：删门户/寻炁/阴宅/人体死链，只留本项目两页互跳。
+ * nav.js —— 跨页顶部导航（三页版：主页 ⇄ 炁流3D ⇄ 堪舆）
+ * 自 xunqi 站 nav.js 改造：删寻炁/阴宅/人体死链；index.html 让位给星空门户后改相对路径三链。
  */
 const LINKS = [
-  { href: '/index.html', label: '炁流 3D', key: 'main' },
-  { href: '/kanyu.html', label: '堪舆', key: 'kanyu' },
+  { href: 'index.html', label: '主页', key: 'home' },
+  { href: 'qiliu.html', label: '炁流 3D', key: 'main' },
+  { href: 'kanyu.html', label: '堪舆', key: 'kanyu' },
 ];
 
 export function renderNav(activeKey) {

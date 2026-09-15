@@ -2,46 +2,69 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="icon" href="favicon.ico" sizes="16x32x48" />
-  <title>炁流 · 3D风水引擎</title>
+  <title>炁流 · 星空门户</title>
   <style>
-    /* ===== 点火屏（加载页）：置于内联大 JS 之前，浏览器流式渲染先画出它——白屏期全程陪跑 =====
-       零 JS：脚本挂了也正常显示（慢网提示 5s 后自动浮现）；main.js 首帧渲染后淡出移除 */
-    html{background:#f7f4ec}   /* HTML 字节未到时的浏览器默认白底也换成米白 */
-    #boot{position:fixed;inset:0;background:#f7f4ec;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;transition:opacity .5s}
-    #boot.hide{opacity:0;pointer-events:none}
-    .boot-ring{width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,108,176,.16);border-top-color:#2b6cb0;animation:bootspin 1.5s linear infinite}
-    .boot-brand{font-family:KaiTi,STKaiti,serif;font-size:46px;font-weight:700;letter-spacing:16px;text-indent:16px;color:#1c2b3a;animation:bootbreath 2.2s ease-in-out infinite}
-    .boot-sub{font-size:13px;color:#8a96aa;letter-spacing:4px}
-    .boot-slow{font-size:12px;color:#b0873f;opacity:0;animation:bootslow .6s ease 5s forwards}
-    .boot-bar{width:min(220px,60vw);height:3px;border-radius:2px;background:rgba(43,108,176,.13);overflow:hidden;margin-top:6px}
-    .boot-bar i{display:block;height:100%;width:0;background:#2b6cb0;border-radius:2px;animation:bootbar 8s ease-out forwards}
-    @keyframes bootspin{to{transform:rotate(360deg)}}
-    @keyframes bootbreath{0%,100%{opacity:.55}50%{opacity:1}}
-    @keyframes bootslow{to{opacity:1}}
-    @keyframes bootbar{to{width:80%}}
-    @media (prefers-reduced-motion: reduce){.boot-ring,.boot-brand{animation:none}.boot-ring{border-top-color:rgba(43,108,176,.5)}}
+    /* critical：防白闪，完整样式异步到货 */
+    html{background:#000}
   </style>
+  <!-- CSS 异步加载（media=print 不阻塞渲染，到货后切 all），与 kanyu.html 同款手法 -->
+  <link rel="stylesheet" href="/src/home/home.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="/src/home/home.css"></noscript>
 </head>
 <body>
   <!--
-  THESIS: 炁流主界面从矩形浮层栏堆叠的通用 3D 编辑器骨架，重构为罗盘堪舆操作台。罗盘回归方位仪器本业（承载八宅/九星/大门朝向/环境风向），模式独立成分段控件，工具与源分组归位。拒绝「顶栏 + 属性面板」的品类默认 3D 工具壳。
-  OWN-WORLD: 浅灰素绢底 #eceef2 + 霁青一线 #2b6cb0（棱线/激活/罗盘）+ 赭金读数 #c77800 + 赤金选中 #d89000 + 冷蓝灰阴影 rgba(60,70,90) + 毛玻璃浮层 + 五行语义色 + CFD 气动/炁流色带。东方雅致克制，风洞科学骨架。
-  STORY: 访客打开，罗盘堪舆图腾先抓住眼球（warm-up 撑场），流体粒子云升起接管焦点；选模式、放源、拖罗盘门向指针调八宅，看吉凶扇区与气流叠加——60 秒理解一种风水-气流关系。
-  FIRST VIEWPORT: 全屏浅灰 3D 场景 + 默认户型半透明霁青棱线墙；warm-up 期罗盘图腾居中渐显（24 山环 + 八宅扇区 + 指针）；顶部模式分段（炁流/风场/采光 + 副标）；右侧工具区分组；底部 hint。流体起后罗盘缩为方位锚点。
-  FORM: shape-pinned（established-world composition refactor，无 concept-seed roll；shape brief 已确认：罗盘归方位本业 + 模式分段 + 全骨架重组 + warm-up 撑场，DESIGN.md 宪法继承）。
-  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+  THESIS: 门户不做卡片墙导航站，做一片可栖的星系——星流 Starflow 引擎（three.js + bloom +
+  镜头光晕，Astra 发布页同源）撑起 4000 星螺旋星系：自转、拖拽旋转、划过推开星尘。
+  星系居中是唯一主角，品牌与文案退到页脚，入口卡沉底，内容层 pointer-events:none 让位画布。
+  OWN-WORLD: 纯黑底 + 调色板 astra（霁青 #6DCBF4 + 赭橙 #F87915 的夜空版）+ 楷体大字。
+  夜幕进门，入室见素绢——与两内页（炁流 3D / 堪舆）互为反相、同血统。
+  STORY: 访客落地，星系自转入场（5.5s intro），拖一下星系跟手旋转，划过星尘让路；
+  底部两张亮卡把人送进炁流 3D 与堪舆，四张暗铭牌预留后续术数页。
+  FALLBACK: WebGL 不可用 → 引擎 renderStaticFallback 静态星图；reduced-motion → 引擎停帧保构图。
   -->
-  <div id="app"></div>
-  <!-- 点火屏：必须在大 JS 之前（流式渲染先到先画）；main.js loop 首帧后淡出移除 -->
-  <div id="boot" role="status" aria-label="加载中">
-    <div class="boot-ring"></div>
-    <div class="boot-brand">炁 流</div>
-    <div class="boot-sub">3D 风水引擎 · 点火中</div>
-    <div class="boot-slow">首次加载约 1MB，网络较慢请稍候…</div>
-    <div class="boot-bar"><i></i></div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
+  <div class="stage"><canvas id="astra" aria-hidden="true"></canvas></div>
+  <main class="portal">
+    <nav class="topbar">
+      <div class="pager">
+        <a href="index.html" class="active" title="星空门户（当前页）">主页</a>
+        <a href="qiliu.html" title="3D 炁流场模拟">炁流 3D</a>
+        <a href="kanyu.html" title="堪舆盘：八宅 / 玄空 / 廿四山 / 年飞星 / 动态九宫 · 户型定盘">堪舆</a>
+      </div>
+    </nav>
+    <!-- 品牌大字与副文案已全部让位：星系是唯一主角，文字退到页脚 -->
+    <section class="cards" aria-label="页面入口">
+      <a class="card is-live" href="qiliu.html">
+        <span class="card-kicker">实时模拟</span>
+        <h2>炁流 3D</h2>
+        <p>Navier-Stokes 气场 + 八宅吉凶扇区叠加，户型定盘看炁行</p>
+        <span class="card-go">入 →</span>
+      </a>
+      <a class="card is-live" href="kanyu.html">
+        <span class="card-kicker">术数排盘</span>
+        <h2>堪舆</h2>
+        <p>八宅 / 玄空 / 廿四山 / 年飞星 / 动态九宫，黄历干支随身断</p>
+        <span class="card-go">入 →</span>
+      </a>
+      <div class="card is-reserved" aria-disabled="true">
+        <h2>八字命理</h2><b>营造中</b>
+      </div>
+      <div class="card is-reserved" aria-disabled="true">
+        <h2>择日吉时</h2><b>营造中</b>
+      </div>
+      <div class="card is-reserved" aria-disabled="true">
+        <h2>玄空排盘</h2><b>营造中</b>
+      </div>
+      <div class="card is-reserved" aria-disabled="true">
+        <h2>罗盘工具</h2><b>营造中</b>
+      </div>
+    </section>
+    <footer class="foot">
+      <span class="foot-brand">炁流 QiLiu · 观天之象，察地之炁，四千星尘入洞天</span>
+      <small>拖动旋转星系 · 划过推开星尘</small>
+    </footer>
+  </main>
+  <script type="module" src="/src/home/main.js"></script>
 </body>
 </html>

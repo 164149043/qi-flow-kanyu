@@ -1,0 +1,190 @@
+/* home.css —— 星空门户样式（星流 Starflow 引擎版）
+ * 视觉骨架学 starflow 主页：画布固定全屏可拖拽，内容层 pointer-events:none 让位，
+ * 只有链接和卡片可点。品牌字/卡片标题用楷体（霞鹜文楷，与 kanyu.css 同源 CDN），正文 system-ui。
+ * 星系配色在 src/home/main.js（palette 'astra'：霁青 #6DCBF4 + 赭橙 #F87915 的夜空版）。 */
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont/lxgwwenkailite-regular.css');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont/lxgwwenkailite-bold.css');
+:root {
+  color-scheme: dark;
+  --ink: #f5f6fb;
+  --ink-dim: rgba(245, 246, 251, 0.72);
+  --ink-faint: rgba(245, 246, 251, 0.5);
+  --qing: #6dcbf4;          /* 霁青（星带主色提亮版，链接/hover） */
+  --gold: #fa994c;          /* 赭金（星带暖色提亮版，kicker/入口箭头） */
+  --line: rgba(245, 246, 251, 0.14);
+  --line-hot: rgba(109, 203, 244, 0.45);
+  --glass: rgba(8, 13, 24, 0.58);
+  --glass-hover: rgba(14, 22, 38, 0.72);
+  --font-kai: "LXGW WenKai Lite", "KaiTi", "STKaiti", "FangSong", "Microsoft YaHei", serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: #000;
+  color: var(--ink);
+  font: 400 15px/1.7 var(--font-ui);
+  overflow: hidden;
+}
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--qing); outline-offset: 3px; border-radius: 4px; }
+
+/* ===== 画布层：固定全屏，星系可拖拽/推斥（引擎接管尺寸与 DPR） ===== */
+.stage { position: fixed; inset: 0; z-index: 0; }
+#astra {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  cursor: grab;
+}
+#astra:active { cursor: grabbing; }
+
+/* ===== 内容层：不拦截指针，画布始终能拖；链接卡片除外（starflow 同款技巧） ===== */
+.portal {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding: 18px clamp(16px, 4vw, 48px) clamp(14px, 2.6vh, 26px);
+}
+.portal a, .portal button { pointer-events: auto; }
+
+/* —— 顶栏：只留右上的三链 pager（品牌让位给星系与页脚） —— */
+.topbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.pager {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(8, 12, 22, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.pager a {
+  padding: 5px 16px;
+  font-size: 13px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  transition: color 0.15s, background 0.15s;
+}
+.pager a:hover { color: var(--ink); }
+.pager a.active { background: rgba(109, 203, 244, 0.16); color: var(--qing); }
+
+/* 中央全让给星系：topbar 与 cards 之间是一段弹性空区，不放任何内容 */
+
+/* —— 入口卡片区：毛玻璃 hairline，星系从卡片后透过来 —— */
+.cards {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 1fr 0.62fr;
+  gap: 12px;
+  max-width: 1020px;
+  width: 100%;
+  margin: auto auto 0;   /* top:auto 沉底（hero 移除后中央全让给星系），左右 auto 水平居中 */
+}
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 96px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, border-color 0.2s, background 0.2s;
+}
+.card.is-live::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--qing), transparent);
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.card.is-live { cursor: pointer; }
+.card.is-live:hover, .card.is-live:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--line-hot);
+  background: var(--glass-hover);
+}
+.card.is-live:hover::before { opacity: 1; }
+.card-kicker { font-size: 11px; letter-spacing: 3px; color: var(--gold); }
+.card h2 {
+  font-family: var(--font-kai);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--ink);
+}
+.card p { font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
+.card-go {
+  position: absolute;
+  right: 16px; bottom: 13px;
+  font-family: var(--font-kai);
+  font-size: 14px;
+  color: var(--gold);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.card.is-live:hover .card-go { opacity: 1; transform: translateX(0); }
+/* 预留卡：更暗一档的铭牌 */
+.card.is-reserved {
+  border-style: dashed;
+  border-color: rgba(245, 246, 251, 0.1);
+  background: rgba(8, 12, 22, 0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.card.is-reserved h2 { font-size: 16px; letter-spacing: 3px; color: var(--ink-faint); }
+.card.is-reserved b { font-weight: 400; font-size: 11px; letter-spacing: 3px; color: var(--ink-faint); opacity: 0.7; }
+
+/* —— 页脚：品牌与副语退到这里，楷体小字不抢星系 —— */
+.foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--ink-faint);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+.foot-brand { font-family: var(--font-kai); letter-spacing: 3px; color: var(--ink-dim); }
+
+/* ===== 断点 ===== */
+@media (max-width: 1023px) {
+  .cards { grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr 0.5fr 0.5fr; }
+}
+@media (max-width: 639px) {
+  .portal { padding: 12px 14px 8px; }
+  /* 单屏预算：激活卡跨双列纵排，四预留卡收 2×2 铭牌，整页不滚 */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card.is-live { grid-column: span 2; min-height: 78px; padding: 12px 16px 11px; }
+  .card.is-live p { display: none; }   /* 窄屏收描述，保单屏 */
+  .card.is-reserved { min-height: 50px; padding: 8px; background: rgba(6, 10, 18, 0.72); }
+  .cards .is-reserved h2 { font-size: 14px; }
+  .foot { flex-direction: column; gap: 2px; text-align: center; margin-top: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .card-go { transition: none; }
+}

@@ -4,11 +4,12 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 // 老子的配置：dev 阶段不挂 singlefile（它是 build 内联用的，dev 挂上纯添乱）
 // build 阶段才启用 singlefile 把一切内联成单文件（复刻原站 418KB 交付）
 //
-// 双入口（index=炁流3D / kanyu=堪舆）——singlefile 官方不支持多入口（wontfix, issue #51），
-// 所以跑两次独立构建（npm run build 串联），每次单入口各产一个单文件：
-//   vite build                → dist/index.html（第一次，清空 dist）
-//   vite build --mode kanyu   → dist/kanyu.html（第二次，emptyOutDir:false 别删第一次产物）
-// dev 无 singlefile，/ 与 /kanyu.html 直接按路径访问，input 配置无所谓但留着没坏处。
+// 三入口（index=星空门户 / qiliu=炁流3D / kanyu=堪舆）——singlefile 官方不支持多入口（wontfix, issue #51），
+// 所以跑三次独立构建（npm run build 串联），每次单入口各产一个单文件：
+//   vite build                → dist/index.html（第一次，清空 dist；不带 --mode 时 mode='production'）
+//   vite build --mode kanyu   → dist/kanyu.html（第二三次 emptyOutDir:false 别删前面产物）
+//   vite build --mode qiliu   → dist/qiliu.html
+// dev 无 singlefile，/ 与 /qiliu.html、/kanyu.html 直接按路径访问，input 配置无所谓但留着没坏处。
 export default defineConfig(({ command, mode }) => ({
   plugins: command === 'build' ? [viteSingleFile()] : [],
   worker: {
@@ -17,9 +18,14 @@ export default defineConfig(({ command, mode }) => ({
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 1000,
-    emptyOutDir: mode !== 'kanyu',   // 第二次构建绝不能清空 dist（vite 默认会清）
+    emptyOutDir: mode === 'production',   // 仅第一次构建清空 dist；kanyu/qiliu 阶段绝不能清
+    // 自定义 mode 下 vite 会把 process.env.NODE_ENV 替换成 'development'——钉回 production 封死漂移
+    // （three/lunar 无 NODE_ENV 分支，@vercel/analytics 有 dev 警告分支，钉住只赚不亏）
+    ...(command === 'build' ? { define: { 'process.env.NODE_ENV': '"production"' } } : {}),
     rollupOptions: {
-      input: mode === 'kanyu' ? { kanyu: 'kanyu.html' } : { main: 'index.html' },
+      input: mode === 'kanyu' ? { kanyu: 'kanyu.html' }
+           : mode === 'qiliu' ? { qiliu: 'qiliu.html' }
+           : { main: 'index.html' },
     },
   },
   // lunar-javascript 是大 CJS 包：运行时首次 import 会触发“新依赖→重新预构建”卡死 server，
