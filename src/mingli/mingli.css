@@ -84,8 +84,8 @@ body {
 .meta-line { margin: 16px 2px 0; font-size: 13px; color: var(--ink-dim); display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .meta-line b { color: var(--ink); font-weight: 600; }
 
-/* ─── 四柱立轴 ─── */
-.pillars { display: flex; flex-direction: row-reverse; justify-content: center; gap: clamp(8px, 3vw, 22px); margin: 22px 0 6px; }
+/* ─── 四柱立轴（左→右：年月日时，现代阅读序） ─── */
+.pillars { display: flex; flex-direction: row; justify-content: center; gap: clamp(8px, 3vw, 22px); margin: 22px 0 6px; }
 .pillar {
   position: relative; width: clamp(64px, 17vw, 92px);
   background: var(--card); border: 1px solid var(--line); border-radius: 4px;
@@ -102,6 +102,7 @@ body {
 .pillar .p-kong { position: absolute; top: 8px; right: 7px; font-size: 10px; color: var(--ink-faint); writing-mode: vertical-rl; letter-spacing: 2px; }
 .pillar .p-kong.day { color: var(--zhu); }
 .pillar .p-hide { margin: 4px 0 2px; font-size: 12px; line-height: 1.55; color: var(--ink-dim); }
+.pillar .p-hide-cap { display: block; font-size: 9.5px; color: var(--ink-faint); letter-spacing: 2px; margin-bottom: 1px; }
 .pillar .p-hide b { font-weight: 600; color: var(--ink); }
 .pillar .p-hide small { display: block; font-size: 10px; color: var(--ink-faint); }
 .pillar .p-xing { margin-top: 4px; font-size: 11px; color: var(--ink-dim); border-top: 1px dashed var(--line); padding-top: 5px; letter-spacing: 2px; }

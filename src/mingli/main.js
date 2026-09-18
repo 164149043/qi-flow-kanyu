@@ -7,7 +7,7 @@
  */
 import { buildChart } from './core/chart.js';
 import {
-  GAN_WUXING, ZHI_WUXING, SHI_SHEN_DESC, WUXING_COLOR,
+  GAN_WUXING, ZHI_WUXING, GAN_YINYANG, SHI_SHEN_DESC,
 } from './core/data.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -29,11 +29,22 @@ const XINGYUN_DESC = {
   '养': '待出之位，主培养、涵养待时。',
 };
 const STRENGTH_DESC = {
-  'weak': '同党之力不足四成，日主难以任财官，行印比之运得扶。',
-  'slightly_weak': '同党略弱于异党，宜印比帮扶，忌再克泄。',
-  'balanced': '同异两党相当，中和之象，取流通调候为要。',
-  'slightly_strong': '同党略胜，可任财官，宜财官食伤泄秀。',
-  'strong': '同党之力过六成，身强能任，喜克泄耗其锐气。',
+  'weak': '帮扶日主的五行不足四成，日主偏弱难以担财官，行印、比劫之运得扶。',
+  'slightly_weak': '帮扶日主的五行略少于克泄者，宜印、比劫帮扶，忌再克泄。',
+  'balanced': '帮扶与克泄两方相当，五行中和，取流通、调候为要。',
+  'slightly_strong': '帮扶日主的五行略占上风，能担财官，宜食伤、财官泄其秀气。',
+  'strong': '帮扶日主的五行超过六成，身强过旺，喜克、泄、耗平衡其势。',
+};
+const STRENGTH_FULL = {
+  'title': '身强身弱怎么判',
+  'body': `
+    <p>「日主」＝出生日的天干，代表命主本人；其余干支都与它论生克关系。</p>
+    <p>「同党」指<b>帮扶日主的两组十神</b>：</p>
+    <p>· <b>比肩/劫财</b>——与日主同五行的干支，好比手上多几个自己；<br>
+    · <b>正印/偏印</b>——生日主的五行，如母亲护身。</p>
+    <p>其余十神（食伤、财、官杀）都在消耗或约束日主，属「异党」。</p>
+    <p>同党分数 ÷ 五行总分（90）＝ 同党占比：<b>≥62% 身强</b>、46~54% 中和、<b>≤38% 身弱</b>，中间为偏强/偏弱。</p>
+    <p>身强者能担财官、喜克泄耗；身弱者需印比帮扶。此为「扶抑」一路的看法，另有调候、病药等参法（后续版本展开）。</p>`,
 };
 
 /* ---------- 状态 ---------- */
@@ -60,7 +71,7 @@ function renderCompose() {
     <div class="compose-folded" id="composeFold">
       <b>${esc(state.chart.input.year)}·${state.chart.input.month}·${state.chart.input.day}</b>
       <span>${state.chart.info.solarText.slice(0, 10)}</span>
-      <span style="margin-left:auto">重新起盘 ▾</span>
+      <span style="margin-left:auto">重新排盘 ▾</span>
     </div>` : composeForm()}
   </section>`;
 }
@@ -87,8 +98,8 @@ function composeForm() {
       </div>
       <div class="fld"><label>性别</label>
         <div class="seg" id="segGender">
-          <button data-g="1" class="${c.gender === 1 ? 'on' : ''}">乾造</button>
-          <button data-g="0" class="${c.gender === 0 ? 'on' : ''}">坤造</button>
+          <button data-g="1" class="${c.gender === 1 ? 'on' : ''}" title="男命（乾造）">男</button>
+          <button data-g="0" class="${c.gender === 0 ? 'on' : ''}" title="女命（坤造）">女</button>
         </div>
       </div>
     </div>
@@ -103,7 +114,7 @@ function composeForm() {
       <div class="fld"><label>真太阳时偏移(分)</label><input type="number" id="inTst" value="${c.tstOffsetMin || 0}" step="1" style="min-width:90px" placeholder="如 -24"></div>
     </div>
     <div class="go-row">
-      <button class="btn-go" id="btnGo">起 盘</button>
+      <button class="btn-go" id="btnGo">排 盘</button>
       <span class="privacy">历法与排盘全部在本机完成</span>
     </div>`;
 }
@@ -112,13 +123,13 @@ function composeForm() {
 function renderPillars(chart) {
   return `<div class="pillars">${chart.pillars.map((p) => `
     <div class="pillar" data-pillar="${p.name}">
-      ${p.kongDay ? '<span class="p-kong day">空</span>' : p.kongYear ? '<span class="p-kong">空</span>' : ''}
+      ${p.kongDay ? '<span class="p-kong day" data-kong="day">空</span>' : p.kongYear ? '<span class="p-kong" data-kong="year">空</span>' : ''}
       <div class="p-name">${p.name}</div>
       <div class="p-shishen ${p.shiShen === '日主' ? 'dayg' : ''}" data-ss="${p.shiShen}">${p.shiShen}</div>
       <div class="p-gan ${wxCls(p.gz)}" data-gz="${p.gz}">${p.gan}</div>
       <div class="p-zhi ${zhiCls(p.zhi)}" data-gz="${p.gz}">${p.zhi}</div>
-      <div class="p-hide">${p.hideGans.map((h) => `<div><b data-hide="${h.gan}">${h.gan}<small>${h.shiShen}</small></b></div>`).join('')}</div>
-      <div class="p-xing">运 <em data-xy="${p.xingYun}">${p.xingYun}</em></div>
+      <div class="p-hide"><small class="p-hide-cap">藏干</small>${p.hideGans.map((h) => `<div><b data-hide="${h.gan}">${h.gan}<small>${h.shiShen}</small></b></div>`).join('')}</div>
+      <div class="p-xing">星运 <em data-xy="${p.xingYun}">${p.xingYun}</em></div>
       <div class="p-nayin ${p.naYin.length <= 3 ? 'short' : ''}" data-ny="${p.naYin}">${p.naYin}</div>
     </div>`).join('')}</div>`;
 }
@@ -146,8 +157,8 @@ function renderWxRing(chart) {
       <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)" font-family="KaiTi,STKaiti,serif">${chart.dayGan}</text>
     </svg></div>
     <div class="strength-txt">
-      <div class="st-label">日主<b>${chart.dayGan}${chart.dayWuxing}</b> · <b>${chart.strength.label}</b></div>
-      <div class="st-desc">${STRENGTH_DESC[chart.strength.code] || ''}（同党占 ${chart.strength.pct}%）</div>
+      <div class="st-label">日主<b>${chart.dayGan}${chart.dayWuxing}</b> · <b data-st="${chart.strength.code}" style="cursor:pointer;text-decoration:underline dotted 2px;text-underline-offset:4px">${chart.strength.label}</b></div>
+      <div class="st-desc">${STRENGTH_DESC[chart.strength.code] || ''}（帮扶日主的五行合计占 ${chart.strength.pct}% · <span data-st="${chart.strength.code}" style="cursor:pointer;color:var(--zhu)">怎么判？</span>）</div>
       <div class="wx-legend">${order.map((w) => `<span data-wx="${w}"><i style="background:var(--wx-${{ '木': 'mu', '火': 'huo', '土': 'tu', '金': 'jin', '水': 'shui' }[w]})"></i>${w} ${chart.wuxing.scores[w]}分</span>`).join('')}</div>
     </div>
   </div>`;
@@ -156,6 +167,10 @@ function renderWxRing(chart) {
 /* ---------- 大运长河 ---------- */
 function renderDayun(chart) {
   const nowYear = new Date().getFullYear();
+  // 顺逆由「年干阴阳 × 性别」定：阳年男/阴年女顺行，阴年男/阳年女逆行
+  const yearYang = GAN_YINYANG[chart.pillars[0].gan] === '阳';
+  const male = chart.input.gender === 1;
+  const direction = (yearYang && male) || (!yearYang && !male) ? '顺行' : '逆行';
   const steps = chart.dayun.list.map((d, i) => {
     const cur = d.ganZhi && nowYear >= d.startYear && nowYear <= d.endYear;
     return `
@@ -171,7 +186,7 @@ function renderDayun(chart) {
   <section class="dayun-sec">
     <div class="dayun-head">
       <h2>大运</h2>
-      <span class="dy-start">${chart.dayun.startYear} 年 ${chart.dayun.startMonth} 月起运 · ${chart.input.gender === 1 ? '阳男顺行' : '阳女逆行'}</span>
+      <span class="dy-start">${chart.dayun.startYear} 年 ${chart.dayun.startMonth} 月起运 · ${male ? '男命' : '女命'}${direction}（${yearYang ? '阳' : '阴'}年生）</span>
     </div>
     <div class="dayun-river">${steps}</div>
   </section>`;
@@ -195,7 +210,19 @@ function renderDrawer() {
 function drawerHtmlFor(target) {
   const chart = state.chart;
   const gz = target.dataset.gz, ss = target.dataset.ss, xy = target.dataset.xy, ny = target.dataset.ny, wx = target.dataset.wx, hide = target.dataset.hide;
+  const st = target.dataset.st, kong = target.dataset.kong;
   const dyIdx = target.dataset.dy;
+  if (kong) {
+    const p = target.closest('.pillar');
+    const pn = p ? p.dataset.pillar : '';
+    return ['空亡', pn + (kong === 'day' ? ' · 逢日空' : ' · 逢年空'),
+      `「空亡」＝旬空：以${kong === 'day' ? '日' : '年'}柱干支所在旬推算，一旬十天、地支十二，必有两支轮空。此柱地支正逢轮空之支，古法谓其气「虚而不实」——吉凶入此减半，待逢「填实」「冲空」之岁而动。<b>非凶煞</b>，多主牵延、心性疏淡之感。`];
+  }
+  if (st && STRENGTH_DESC[st]) {
+    const sameSide = chart.wuxing.scores[chart.strength.dayWuxing] + chart.wuxing.scores[chart.strength.yinWuxing];
+    return [chart.strength.label + ' · 判法', '扶抑',
+      `${STRENGTH_FULL.body}<p>本盘：比劫（${chart.strength.dayWuxing}）${chart.wuxing.scores[chart.strength.dayWuxing]}分 + 印（${chart.strength.yinWuxing}）${chart.wuxing.scores[chart.strength.yinWuxing]}分 = ${sameSide}分，占 90 分的 <b>${chart.strength.pct}%</b> → <b>${chart.strength.label}</b>。</p>`];
+  }
   if (gz) {
     const p = chart.pillars.find((x) => x.gz === gz) || chart.dayun.list.find((x) => x.ganZhi === gz && x.shiShen);
     if (p && p.name) {
@@ -247,7 +274,7 @@ function render() {
     ` : `
       <div class="empty">
         <div class="e-glyphs">年 月 日 时</div>
-        <p>填生辰于上帖，四柱立轴即成</p>
+        <p>填好出生时间，点「排盘」即出四柱</p>
       </div>
       <div class="foot">传统命理文化 · 仅供研究参考</div>
     `}
@@ -316,7 +343,7 @@ function bind() {
 render();
 // 抽屉点选委托只挂一次（render 会重写 app 内部，委托在 app 上不受影响）
 app.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-gz],[data-ss],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy]');
+  const t = e.target.closest('[data-gz],[data-ss],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong]');
   if (!t) return;
   const hit = drawerHtmlFor(t);
   if (hit) openDrawer(hit[0], hit[1], hit[2]);
