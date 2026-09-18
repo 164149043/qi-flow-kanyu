@@ -28,6 +28,9 @@ const CELL = 0.20;
 const PALACE_DISC_H = 0.032;                          // ① 九宫贴地能量盘离地高（原站同款）
 const PALACE_LABEL_H = { center: 0.95, side: 0.72 };  // ② 九宫悬浮标签高（中宫/八宫，原站同款）
 const BAZHAI_LABEL_H = 1.35;                          // ③ 八宅悬浮标签高（八宅扇区上空）
+const BAZHAI_PLANE_OPACITY = 0.6;                     // ④ 八宅地板扇区整体半透明（材质级；扇区色块纹理自身 alpha 0.24-0.33，有效≈0.14-0.20）
+const LABEL_RES = 2;                                  // ⑤ 悬浮标签 canvas 分辨率倍率：256×104 基准 → 512×208（字号/线宽同比，防放大发糊，PDF 截图留余量）
+const LABEL_SCALE = { w: 2.20, h: 0.90 };             // ⑥ 悬浮标签 Sprite 视觉尺寸（米）：原 1.46×0.59 累计 ×1.5（2026-09-18 二次放大）
 let palaceScale = 1, bazhaiScale = 1;                 // 盘式缩放（左栏滑块驱动）：palaceScale=九宫分野范围 0.4~1（收向域中心套住户型）；bazhaiScale=八宅扇区半径 0.5~2。高度恒不受影响
 
 
@@ -96,6 +99,20 @@ style.textContent = `
   .ctrl-grp label{font-size:11px;color:#555;display:flex;align-items:center;gap:4px}
   .ctrl-grp button{flex:1 1 auto;min-width:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;padding:6px 8px}
   .ctrl-grp button.zb{flex:1 1 46px;padding:6px 0}
+  /* 收纳式精简（2026-09-18）：「清」按钮图标化 + 朝向下拉 + 方案▾ 菜单 */
+  .ctrl-grp button.mini{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;line-height:0;color:#8a5a55;border-color:#d8c4c0}
+  .ctrl-grp button.mini:hover{color:#c0392b;border-color:#c0392b;background:#fdf3f2}
+  .ctrl-grp select{flex:1 1 auto;width:100%;background:#fff;color:#333;border:1px solid #c8ccd4;border-radius:4px;padding:6px 8px;font-size:13px;cursor:pointer}
+  .ctrl-grp select:hover{border-color:#4a80d9}
+  .dd{position:relative;flex:0 0 auto}
+  .dd summary{cursor:pointer;list-style:none;user-select:none;font-size:13px;color:#333;background:#fff;border:1px solid #c8ccd4;border-radius:4px;padding:6px 14px;white-space:nowrap}
+  .dd summary::-webkit-details-marker{display:none}
+  .dd summary::after{content:" ▾";color:#999;font-size:11px}
+  .dd summary:hover{border-color:#4a80d9}
+  .dd[open] summary{background:#e8f0fe;border-color:#4a80d9;color:#1a56c4}
+  .dd-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;display:flex;flex-direction:column;gap:2px;min-width:148px;padding:4px;background:rgba(255,255,255,.97);border:1px solid #c8ccd4;border-radius:6px;box-shadow:0 4px 14px rgba(60,70,90,.18)}
+  .dd-menu button{border:none;background:transparent;flex:0 0 auto;width:100%;justify-content:flex-start;text-align:left;padding:6px 8px;border-radius:4px;font-size:13px}
+  .dd-menu button:hover{background:#e8f0fe;color:#1a56c4;border:none}
   .ctrl-grp.view button{font-size:12px;padding:6px 4px}
   button.armed{color:#c0392b;border-color:#e0b4b0;background:#fff}
   .ctrl-head-r{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -119,7 +136,7 @@ style.textContent = `
   .lg-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#555;margin:1px 5px 1px 0}
   .lg-dot{width:7px;height:7px;border-radius:50%;flex:none}
   .undo-link{color:#1a56c4;cursor:pointer;text-decoration:underline;font-weight:600}
-  button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #1a56c4;outline-offset:1px;border-radius:4px}
+  button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1a56c4;outline-offset:1px;border-radius:4px}
   @media (prefers-reduced-motion: reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
   /* 页面分段切换器（炁流⇄堪舆 双页同款，2026-08-18 统一入口；规则与 kanyu.css .pager 一致） */
   .pager{display:inline-flex;align-items:center;border:1px solid #c8ccd4;border-radius:999px;background:rgba(255,255,255,0.72);backdrop-filter:blur(6px);padding:2px}
@@ -135,6 +152,8 @@ style.textContent = `
     .m-toolbar .pager a{padding:4px 10px;font-size:12px}
     .m-btn{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #c8ccd4;cursor:pointer;flex:none}
     .m-btn.active{background:#e8f0fe;border-color:#4a80d9}
+    /* bottom sheet 内方案菜单平铺进文档流（sheet 自带滚动；浮层上下展开都会被 sheet 边界裁掉，2026-09-18 实测） */
+    .dd-menu{position:static;min-width:0;box-shadow:none;border:none;background:transparent;padding:2px 0 0}
     /* bottom sheet：1/3 屏高（多留场景）、半透明（透出建筑与源元素）、内部滚动；场景无遮罩照常操作 */
     .ctrl-panel,.dp-panel{
       left:0;right:0;top:auto;bottom:0;width:auto;height:32dvh;min-height:220px;
@@ -217,11 +236,11 @@ ctrlPanel.innerHTML = `
     <div class="ctrl-grp" data-k="sun"></div>
     <div class="ctrl-grp" data-k="fixture"></div>
   </details>
-  <details class="ctrl-sec" open><summary>视图</summary><div class="ctrl-grp" data-k="view"></div></details>
-  <details class="ctrl-sec" open><summary>报告</summary><div class="ctrl-grp" data-k="reportGrp"></div></details>
-  <details class="ctrl-sec" open><summary>八宅</summary><div class="ctrl-grp" data-k="zhai"></div></details>
-  <details class="ctrl-sec" open><summary>九星</summary><div class="ctrl-grp" data-k="star"></div></details>
-  <details class="ctrl-sec" data-k="src"><summary>源属性</summary><div class="ctrl-grp" data-k="srcBody"></div></details>`;
+  <details class="ctrl-sec" data-k="src"><summary>源属性</summary><div class="ctrl-grp" data-k="srcBody"></div></details>
+  <details class="ctrl-sec"><summary>视图</summary><div class="ctrl-grp" data-k="view"></div></details>
+  <details class="ctrl-sec"><summary>报告</summary><div class="ctrl-grp" data-k="reportGrp"></div></details>
+  <details class="ctrl-sec"><summary>八宅</summary><div class="ctrl-grp" data-k="zhai"></div></details>
+  <details class="ctrl-sec" open><summary>九星</summary><div class="ctrl-grp" data-k="star"></div></details>`;
 app.appendChild(ctrlPanel);
 const modeWrap = ctrlPanel.querySelector('[data-k="mode"]');
 const structGrp = ctrlPanel.querySelector('[data-k="struct"]');
@@ -272,9 +291,11 @@ envWindBtn.title = '环境风开关：关掉则无背景环境风，只剩风口
 envWindBtn.onclick = () => { envWindOn = !envWindOn; envWindBtn.classList.toggle('active', envWindOn); sendWind(); };
 windRow.appendChild(envWindBtn);
 const clearWindBtn = document.createElement('button');
-clearWindBtn.textContent = '清风口';
+clearWindBtn.className = 'mini';
+clearWindBtn.innerHTML = ICO.trash;
+clearWindBtn.title = '清空全部风口';
 clearWindBtn.onclick = () => clearSources(windGroup, windSrcs, 'setWindSrcs', 'srcs', 'wind');
-windRow.appendChild(clearWindBtn);
+// 🗑 清风口：挪到风向/风速滑块之后（子组尾部，2026-09-18 收纳）——appendChild 在 windSliders 定义处
 
 // 五行结构工具栏（炁流模式显示）：金木水火土 + 清除
 const structRow = structGrp;   // 放置节·炁流子分组（energy 模式才显；初始 mode=energy 即显示，切换由模式按钮接管）
@@ -296,7 +317,8 @@ ELEM_LIST.forEach(([k, lab]) => {
   structRow.appendChild(b);
 });
 const clearStructBtn = document.createElement('button');
-clearStructBtn.textContent = '清炁流';
+clearStructBtn.className = 'mini';
+clearStructBtn.innerHTML = ICO.trash;
 clearStructBtn.title = '清除五行结构 + 炁口 + 炁场';
 clearStructBtn.onclick = () => {
   for (let k = structGroup.children.length - 1; k >= 0; k--) { const c = structGroup.children[k]; structGroup.remove(c); c.traverse?.(x => { x.geometry?.dispose(); x.material?.dispose(); }); }
@@ -307,13 +329,14 @@ clearStructBtn.onclick = () => {
   worker.postMessage({ type: 'setQiPorts', ports: [] });
   worker.postMessage({ type: 'clearField', field: 'dye' });   // 清炁场
 };
-structRow.appendChild(clearStructBtn);
+// 🗑 清炁流：挪到炁口按钮之后（子组尾部，2026-09-18 收纳）——appendChild 在 qiBtn 定义处
 const qiBtn = document.createElement('button');
 qiBtn.innerHTML = ico(ICO.qi, '炁口');
 qiBtn.style.borderLeft = '4px solid #ffaa44';
 qiBtn.title = '放置炁口：持续注入炁形成浓度力场，沿自身朝向缓慢发散';
 qiBtn.onclick = () => { placingQi = !placingQi; qiBtn.classList.toggle('active', placingQi); hint.innerHTML = placingQi ? '点击地板放置【炁口】· 持续注炁成力场，放置后可调炁向/炁量（再点取消）' : HINT_DEFAULT; };
 structRow.appendChild(qiBtn);
+structRow.appendChild(clearStructBtn);   // 🗑 清炁流在子组尾部
 // 炁向不再设全局滑块（避免与属性面板方向冲突）：
 // 方向是每个炁口的独立属性，统一由选中后的属性面板/滚轮调节；
 // 新炁口初始方向继承上次调整值（lastQiBearing，连续放同向炁口更方便）
@@ -692,7 +715,9 @@ lightBtn.title = '放置光源：持续发光';
 lightBtn.onclick = () => { placingLight = !placingLight; lightBtn.classList.toggle('active', placingLight); hint.innerHTML = placingLight ? '点击地板放置【光源】· 持续发光（再点取消）' : HINT_DEFAULT; };
 sunRow.appendChild(lightBtn);
 const clearLightBtn = document.createElement('button');
-clearLightBtn.textContent = '清光源';
+clearLightBtn.className = 'mini';
+clearLightBtn.innerHTML = ICO.trash;
+clearLightBtn.title = '清空全部光源';
 clearLightBtn.onclick = () => clearSources(lightGroup, lightPts, 'setLightPts', 'pts', 'light');
 sunRow.appendChild(clearLightBtn);
 
@@ -708,6 +733,7 @@ windSliders.innerHTML = `
   <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#555;width:100%">风向<input type="range" id="envDir" min="0" max="359" value="${curWindDir}" style="flex:1"><b id="envDirVal" style="min-width:40px;text-align:right;color:#c77800">${dirName(curWindDir)}</b></label>
   <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#555;width:100%">风速<input type="range" id="envSpd" min="1" max="15" step="0.5" value="${windSpd}" style="flex:1"><b id="envSpdVal" style="min-width:36px;text-align:right;color:#c77800">${windSpd}</b></label>`;
 windRow.appendChild(windSliders);
+windRow.appendChild(clearWindBtn);   // 🗑 清风口在子组尾部
 windSliders.querySelector('#envDir').oninput = (e) => { curWindDir = +e.target.value; windSliders.querySelector('#envDirVal').textContent = dirName(curWindDir); sendWind(); };
 windSliders.querySelector('#envSpd').oninput = (e) => { windSpd = +e.target.value; windSliders.querySelector('#envSpdVal').textContent = windSpd; sendWind(); };
 // 罗盘指针/盘面滚轮改风时同步滑块显示
@@ -783,21 +809,23 @@ let planOffset = +(localStorage.getItem('plan:offset') || 0);   // 度：图上�
 const planDirRow = document.createElement('div');
 planDirRow.className = 'ctrl-grp';
 planDirRow.style.cssText = 'width:100%;margin-top:6px';
-planDirRow.innerHTML = `<div style="font-size:11px;color:#555;margin-bottom:3px">户型朝向（图上↑=实际）<b id="planDirVal" style="color:#c77800;float:right">${dirName(planOffset)}</b></div>`;
+planDirRow.innerHTML = `<div style="font-size:11px;color:#555;margin-bottom:3px">户型朝向（图上↑=实际方位）</div>`;
+const planDirSel = document.createElement('select');
+planDirSel.title = '户型图上方对应的实际方位 · 八宅扇区/风场/采光联动';
 WIND8NAME.forEach((dn, di) => {
-  const b = document.createElement('button');
-  b.className = 'zb';
-  b.textContent = dn;
-  b.title = `户型图上方 = 实际${dn}（${di * 45}°）· 八宅/风场/采光联动`;
-  b.onclick = () => setPlanOffset(di * 45);
-  planDirRow.appendChild(b);
+  const o = document.createElement('option');
+  o.value = String(di * 45);
+  o.textContent = `上=${dn}（${di * 45}°）`;
+  planDirSel.appendChild(o);
 });
+planDirSel.value = String(((Math.round(planOffset / 45) % 8) + 8) % 8 * 45);   // 容错旧 localStorage 非整 45° 值
+planDirSel.onchange = () => setPlanOffset(+planDirSel.value);
+planDirRow.appendChild(planDirSel);
 viewWrap.appendChild(planDirRow);
 function setPlanOffset(deg) {
   planOffset = ((Math.round(deg) % 360) + 360) % 360;
   localStorage.setItem('plan:offset', planOffset);
-  planDirRow.querySelectorAll('button').forEach((b, i) => b.classList.toggle('active', i * 45 === planOffset));
-  planDirRow.querySelector('#planDirVal').textContent = dirName(planOffset);
+  planDirSel.value = String(((Math.round(planOffset / 45) % 8) + 8) % 8 * 45);   // 朝向下拉：选中项即状态（snap 到最近 45°，容错历史非整值）
   // ① 地板八宅/九星扇区 + 悬浮九宫：旋转对齐地理（罗盘是纯地理仪器不转）
   const rad = planOffset * Math.PI / 180;
   if (typeof bazhaiPlane !== 'undefined') bazhaiPlane.rotation.z = rad;
@@ -1175,8 +1203,8 @@ saveBtn.onclick = () => {
   a.click();
   URL.revokeObjectURL(a.href);
   hint.innerHTML = '方案已导出（.json）';
+  planDD.open = false;
 };
-reportGrp.appendChild(saveBtn);
 
 const planInput = document.createElement('input');
 planInput.type = 'file';
@@ -1197,8 +1225,20 @@ document.body.appendChild(planInput);
 const loadBtn = document.createElement('button');
 loadBtn.innerHTML = ico(ICO.upload, '导入方案');
 loadBtn.title = '载入 .json 方案，整场替换当前布置';
-loadBtn.onclick = () => planInput.click();
-reportGrp.appendChild(loadBtn);
+loadBtn.onclick = () => { planInput.click(); planDD.open = false; };
+// 「方案 ▾」下拉（2026-09-18 收纳）：details 原生点击展开，触屏/键盘可用；导出/导入收进菜单
+const planDD = document.createElement('details');
+planDD.className = 'dd';
+planDD.innerHTML = '<summary title="导出当前布置为 .json / 载入 .json 方案">方案</summary>';
+const ddMenu = document.createElement('div');
+ddMenu.className = 'dd-menu';
+planDD.appendChild(ddMenu);
+ddMenu.appendChild(saveBtn);
+ddMenu.appendChild(loadBtn);
+reportGrp.appendChild(planDD);
+// 点外部 / Escape 收起（details 原生不带外点收起）
+document.addEventListener('click', (e) => { if (planDD.open && !planDD.contains(e.target)) planDD.open = false; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') planDD.open = false; });
 
 // sep2 省略
 // 簇 3：风水层开关
@@ -1660,7 +1700,8 @@ for (const key of ['screen', 'door', 'window']) {
   fixtureRow.appendChild(b);
 }
 const clearFixtureBtn = document.createElement('button');
-clearFixtureBtn.textContent = '清结构件';
+clearFixtureBtn.className = 'mini';
+clearFixtureBtn.innerHTML = ICO.trash;
 clearFixtureBtn.title = '清除屏风/门/窗（墙体洞自动复原）';
 clearFixtureBtn.onclick = () => { clearFixtures(); hint.innerHTML = '已清除全部结构件：屏风/门/窗移除，墙体复原'; };
 fixtureRow.appendChild(clearFixtureBtn);
@@ -1679,7 +1720,7 @@ bazhaiCanvas.width = W * HSCALE; bazhaiCanvas.height = H * HSCALE;
 const bazhaiTex = new THREE.CanvasTexture(bazhaiCanvas);
 const bazhaiPlane = new THREE.Mesh(
   new THREE.PlaneGeometry(scene3d.FW, scene3d.FD),
-  new THREE.MeshBasicMaterial({ map: bazhaiTex, transparent: true, opacity: 1.0, depthWrite: false })
+  new THREE.MeshBasicMaterial({ map: bazhaiTex, transparent: true, opacity: BAZHAI_PLANE_OPACITY, depthWrite: false })
 );
 bazhaiPlane.rotation.x = -Math.PI / 2;
 bazhaiPlane.position.y = 0.006;
@@ -1787,20 +1828,21 @@ function disposeGroup(grp) {
   }
 }
 
-// 悬浮标签牌（256×104 canvas → Sprite，scale 1.46×0.59m，原站同款）：两行字，白描边压底
+// 悬浮标签牌（基准 256×104 × LABEL_RES → Sprite，视觉尺寸 LABEL_SCALE，两行字白描边压底）
 function makeLabelSprite(line1, line1Color, line2, line2Color) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 104;
+  const c = document.createElement('canvas'); c.width = 256 * LABEL_RES; c.height = 104 * LABEL_RES;
   const x2 = c.getContext('2d');
+  const cx = c.width / 2;
   x2.textAlign = 'center'; x2.textBaseline = 'middle';
-  x2.font = 'bold 34px "Microsoft YaHei"';
-  x2.strokeStyle = 'rgba(255,255,255,.95)'; x2.lineWidth = 7;
-  x2.strokeText(line1, 128, 26); x2.fillStyle = line1Color; x2.fillText(line1, 128, 26);
-  x2.font = 'bold 22px "Microsoft YaHei"'; x2.lineWidth = 5;
-  x2.strokeText(line2, 128, 70); x2.fillStyle = line2Color; x2.fillText(line2, 128, 70);
+  x2.font = `bold ${34 * LABEL_RES}px "Microsoft YaHei"`;
+  x2.strokeStyle = 'rgba(255,255,255,.95)'; x2.lineWidth = 7 * LABEL_RES;
+  x2.strokeText(line1, cx, 26 * LABEL_RES); x2.fillStyle = line1Color; x2.fillText(line1, cx, 26 * LABEL_RES);
+  x2.font = `bold ${22 * LABEL_RES}px "Microsoft YaHei"`; x2.lineWidth = 5 * LABEL_RES;
+  x2.strokeText(line2, cx, 70 * LABEL_RES); x2.fillStyle = line2Color; x2.fillText(line2, cx, 70 * LABEL_RES);
   const tex = new THREE.CanvasTexture(c);
   tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
   const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
-  spr.scale.set(1.46, 0.59, 1);
+  spr.scale.set(LABEL_SCALE.w, LABEL_SCALE.h, 1);
   spr.renderOrder = 99;   // 始终画在墙体/模型之上
   return spr;
 }
@@ -1874,7 +1916,7 @@ function buildBazhaiLabels() {
   for (const s of bz.sectors) {
     const ang = (s.bearing + 22.5) * Math.PI / 180;
     const spr = makeLabelSprite(dirName(s.bearing), '#101828', `${s.name} · ${s.ji > 0 ? '吉' : '凶'}`, s.ji > 0 ? '#2a8a3a' : '#c0392b');
-    spr.scale.set(1.46 * bazhaiScale, 0.59 * bazhaiScale, 1);
+    spr.scale.set(LABEL_SCALE.w * bazhaiScale, LABEL_SCALE.h * bazhaiScale, 1);
     spr.position.set(Math.sin(ang) * R, BAZHAI_LABEL_H, -Math.cos(ang) * R);
     spr.userData.bearing = s.bearing;   // 缩放时按方位重算半径
     bazhaiFloatGroup.add(spr);
@@ -1901,7 +1943,7 @@ function applyBazhaiScale() {
   const R = Math.min(scene3d.FW, scene3d.FD) * 0.30 * bazhaiScale;
   bazhaiFloatGroup.traverse((o) => {
     if (!o.isSprite) return;
-    o.scale.set(1.46 * bazhaiScale, 0.59 * bazhaiScale, 1);
+    o.scale.set(LABEL_SCALE.w * bazhaiScale, LABEL_SCALE.h * bazhaiScale, 1);
     const ang = (o.userData.bearing + 22.5) * Math.PI / 180;
     o.position.set(Math.sin(ang) * R, BAZHAI_LABEL_H, -Math.cos(ang) * R);
   });
