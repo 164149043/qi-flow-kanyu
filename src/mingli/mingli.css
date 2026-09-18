@@ -1,0 +1,186 @@
+/**
+ * mingli.css —— 命理页皮肤（米白宣纸 + 玄墨 + 朱砂）
+ * ============================================================
+ * 布局原则（与参考站完全不同的自研形态）：
+ *   四柱 = 四根竖排立轴（年月日时从右向左）
+ *   五行强弱 = 五行环（SVG 弧段按分数占比）
+ *   大运 = 时间长河（横向卷轴）
+ *   释义 = 底部抽屉，点盘面元素才滑出
+ */
+
+:root {
+  --paper: #f7f4ec;
+  --paper-deep: #efe9dc;
+  --card: #fffdf7;
+  --line: #d8d0bd;
+  --ink: #26222c;
+  --ink-dim: #5d5a66;
+  --ink-faint: #8a8794;
+  --zhu: #a63a2e;        /* 朱砂：主强调 */
+  --zhu-soft: rgba(166, 58, 46, .09);
+  --jin: #b0873f;        /* 描金：次强调 */
+  --wx-mu: #3f7d54; --wx-huo: #b8433a; --wx-tu: #a3762e; --wx-jin: #a8862f; --wx-shui: #3a6fa8;
+  --kai: KaiTi, STKaiti, 'AR PL UKai CN', serif;
+  --song: 'Noto Serif SC', 'Songti SC', STSong, SimSun, serif;
+  --sans: system-ui, -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 15px; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  /* 宣纸暗纹：极淡的横向纤维 */
+  background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(38, 34, 44, .012) 3px 4px);
+}
+
+/* ─── 顶栏 ─── */
+.topbar {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 20px 22px 14px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 253, 247, .6), transparent);
+}
+.topbar h1 { font-family: var(--kai); font-size: 26px; letter-spacing: 10px; font-weight: 700; }
+.topbar .sub { font-size: 12px; color: var(--ink-faint); letter-spacing: 2px; }
+.topbar .back { margin-left: auto; color: var(--ink-dim); text-decoration: none; font-size: 13px; letter-spacing: 1px; }
+.topbar .back:hover { color: var(--zhu); }
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 18px 90px; }
+
+/* ─── 输入区（一张"投帖"卡） ─── */
+.compose { margin: 18px 0 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 14px; }
+.compose-folded { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 4px; color: var(--ink-dim); font-size: 14px; }
+.compose-folded:hover { color: var(--zhu); }
+.compose-folded b { color: var(--ink); font-weight: 600; }
+.compose-row { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; margin-top: 12px; }
+.fld { display: flex; flex-direction: column; gap: 4px; }
+.fld label { font-size: 12px; color: var(--ink-faint); letter-spacing: 2px; }
+.fld input, .fld select {
+  font: inherit; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 70px;
+}
+.fld input:focus, .fld select:focus { outline: none; border-color: var(--zhu); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; padding: 6px 12px; border: 0; background: var(--paper); color: var(--ink-dim); cursor: pointer; }
+.seg button.on { background: var(--ink); color: var(--paper); }
+.adv-toggle { margin-top: 12px; font-size: 12px; color: var(--ink-faint); cursor: pointer; user-select: none; letter-spacing: 1px; }
+.adv-toggle:hover { color: var(--zhu); }
+.adv { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.adv.open { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; }
+.go-row { margin-top: 14px; display: flex; align-items: center; gap: 12px; }
+.btn-go {
+  font-family: var(--kai); font-size: 17px; letter-spacing: 6px; text-indent: 6px;
+  color: var(--paper); background: var(--zhu); border: 0; border-radius: 8px;
+  padding: 9px 26px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(166, 58, 46, .25);
+}
+.btn-go:hover { filter: brightness(1.07); }
+.btn-go:active { transform: translateY(1px); }
+.privacy { font-size: 11px; color: var(--ink-faint); }
+
+/* ─── 盘面信息行 ─── */
+.meta-line { margin: 16px 2px 0; font-size: 13px; color: var(--ink-dim); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.meta-line b { color: var(--ink); font-weight: 600; }
+
+/* ─── 四柱立轴 ─── */
+.pillars { display: flex; flex-direction: row-reverse; justify-content: center; gap: clamp(8px, 3vw, 22px); margin: 22px 0 6px; }
+.pillar {
+  position: relative; width: clamp(64px, 17vw, 92px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  padding: 12px 6px 10px; text-align: center;
+  box-shadow: 0 1px 6px rgba(38, 34, 44, .05);
+}
+.pillar .p-name { font-size: 11px; color: var(--ink-faint); letter-spacing: 3px; margin-bottom: 6px; }
+.pillar .p-shishen { font-size: 12px; color: var(--zhu); letter-spacing: 2px; min-height: 18px; }
+.pillar .p-shishen.dayg { color: var(--jin); font-weight: 700; }
+.pillar .p-gan, .pillar .p-zhi {
+  font-family: var(--kai); font-size: clamp(30px, 8vw, 44px); font-weight: 700; line-height: 1.25;
+}
+.pillar .p-gan { margin-top: 2px; }
+.pillar .p-kong { position: absolute; top: 8px; right: 7px; font-size: 10px; color: var(--ink-faint); writing-mode: vertical-rl; letter-spacing: 2px; }
+.pillar .p-kong.day { color: var(--zhu); }
+.pillar .p-hide { margin: 4px 0 2px; font-size: 12px; line-height: 1.55; color: var(--ink-dim); }
+.pillar .p-hide b { font-weight: 600; color: var(--ink); }
+.pillar .p-hide small { display: block; font-size: 10px; color: var(--ink-faint); }
+.pillar .p-xing { margin-top: 4px; font-size: 11px; color: var(--ink-dim); border-top: 1px dashed var(--line); padding-top: 5px; letter-spacing: 2px; }
+.pillar .p-xing em { font-style: normal; color: var(--jin); }
+.pillar .p-nayin { margin-top: 4px; font-size: 10.5px; color: var(--ink-faint); letter-spacing: 1px; writing-mode: vertical-rl; margin-left: auto; margin-right: auto; height: 48px; }
+.pillar .p-nayin.short { writing-mode: horizontal-tb; height: auto; }
+
+/* 五行着色：干支大字按五行染色（墨底描色，非数据图不用纯色） */
+.wx-mu { color: var(--wx-mu); } .wx-huo { color: var(--wx-huo); } .wx-tu { color: var(--wx-tu); }
+.wx-jin { color: var(--wx-jin); } .wx-shui { color: var(--wx-shui); }
+
+/* ─── 五行环 + 强弱 ─── */
+.strength-sec { display: flex; gap: 18px; align-items: center; margin: 20px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; flex-wrap: wrap; }
+.wxring { flex: 0 0 auto; }
+.wxring svg { display: block; }
+.strength-txt { flex: 1 1 200px; min-width: 200px; }
+.strength-txt .st-label { font-family: var(--kai); font-size: 21px; letter-spacing: 4px; }
+.strength-txt .st-label b { color: var(--zhu); }
+.strength-txt .st-desc { font-size: 12.5px; color: var(--ink-dim); margin-top: 6px; line-height: 1.7; }
+.wx-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; font-size: 12px; color: var(--ink-dim); }
+.wx-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+/* ─── 大运长河 ─── */
+.dayun-sec { margin: 20px 0 0; }
+.dayun-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 2px 10px; }
+.dayun-head h2 { font-family: var(--kai); font-size: 17px; letter-spacing: 5px; }
+.dayun-head .dy-start { font-size: 12px; color: var(--ink-faint); }
+.dayun-river {
+  display: flex; gap: 0; overflow-x: auto; padding: 14px 10px 10px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  scrollbar-width: thin;
+  /* 右端渐隐：暗示长河可横滚 */
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+}
+.dayun-river::-webkit-scrollbar { height: 5px; }
+.dayun-river::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.dy-step {
+  flex: 0 0 auto; width: 74px; text-align: center; cursor: pointer; position: relative;
+  border-right: 1px dashed var(--line); padding: 2px 0 6px;
+}
+.dy-step:last-child { border-right: 0; }
+.dy-step .dy-age { font-size: 10.5px; color: var(--ink-faint); }
+.dy-step .dy-gz { font-family: var(--kai); font-size: 20px; font-weight: 700; line-height: 1.5; margin: 2px 0; }
+.dy-step .dy-ss { font-size: 11px; color: var(--zhu); }
+.dy-step .dy-year { font-size: 10px; color: var(--ink-faint); }
+.dy-step:hover { background: var(--zhu-soft); }
+.dy-step.cur { background: var(--zhu-soft); box-shadow: inset 0 -2px 0 var(--zhu); }
+.dy-step .dy-flag { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); font-size: 9.5px; color: var(--paper); background: var(--zhu); border-radius: 3px; padding: 0 4px; }
+
+/* ─── 释义抽屉 ─── */
+.drawer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  background: var(--card); border-top: 2px solid var(--zhu);
+  box-shadow: 0 -6px 24px rgba(38, 34, 44, .12);
+  transform: translateY(102%); transition: transform .28s ease;
+  max-height: 46vh; overflow-y: auto;
+}
+.drawer.open { transform: translateY(0); }
+.drawer-in { max-width: 760px; margin: 0 auto; padding: 14px 20px 22px; }
+.drawer h3 { font-family: var(--kai); font-size: 17px; letter-spacing: 4px; display: flex; align-items: baseline; gap: 10px; }
+.drawer h3 .tag { font-size: 11px; color: var(--zhu); letter-spacing: 1px; font-family: var(--sans); }
+.drawer .d-body { font-size: 13.5px; color: var(--ink-dim); line-height: 1.85; margin-top: 8px; }
+.drawer .d-body b { color: var(--ink); }
+.drawer .d-close { position: absolute; top: 10px; right: 14px; border: 0; background: none; font-size: 17px; color: var(--ink-faint); cursor: pointer; }
+.drawer .d-close:hover { color: var(--zhu); }
+
+/* ─── 空态（未起盘） ─── */
+.empty { text-align: center; padding: 60px 0 30px; color: var(--ink-faint); }
+.empty .e-glyphs { font-family: var(--kai); font-size: 40px; letter-spacing: 22px; text-indent: 22px; color: var(--ink); opacity: .16; }
+.empty p { font-size: 13px; margin-top: 14px; letter-spacing: 2px; }
+
+/* ─── 底部脚注 ─── */
+.foot { text-align: center; font-size: 11px; color: var(--ink-faint); padding: 26px 0 10px; letter-spacing: 1px; }
+
+@media (max-width: 480px) {
+  .topbar h1 { font-size: 22px; letter-spacing: 7px; }
+  .pillars { gap: 7px; }
+  .strength-sec { flex-direction: column; align-items: center; }
+  .strength-txt { text-align: center; }
+  .wx-legend { justify-content: center; }
+}

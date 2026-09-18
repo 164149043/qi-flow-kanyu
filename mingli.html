@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" href="favicon.ico" sizes="16x32x48">
+<title>命理 · 四柱排盘</title>
+<!-- CSS 异步加载（media=print 不阻塞渲染，到货后切 all），与 kanyu 同款手法 -->
+<link rel="stylesheet" href="/src/mingli/mingli.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/src/mingli/mingli.css"></noscript>
+<style>
+  /* ===== 点火屏：零 JS 先画出，main.js 首渲染后淡出移除（与 kanyu 同款机制） */
+  html{background:#f7f4ec}
+  #boot{position:fixed;inset:0;background:#f7f4ec;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;transition:opacity .5s}
+  #boot.hide{opacity:0;pointer-events:none}
+  .boot-ring{width:62px;height:62px;border-radius:50%;border:2px solid rgba(166,58,46,.16);border-top-color:#a63a2e;animation:bootspin 1.5s linear infinite}
+  .boot-brand{font-family:KaiTi,STKaiti,serif;font-size:46px;font-weight:700;letter-spacing:16px;text-indent:16px;color:#26222c;animation:bootbreath 2.2s ease-in-out infinite}
+  .boot-sub{font-size:13px;color:#8a96aa;letter-spacing:4px}
+  @keyframes bootspin{to{transform:rotate(360deg)}}
+  @keyframes bootbreath{0%,100%{opacity:.55}50%{opacity:1}}
+  @media (prefers-reduced-motion: reduce){.boot-ring,.boot-brand{animation:none}.boot-ring{border-top-color:rgba(166,58,46,.5)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="boot" role="status" aria-label="加载中">
+  <div class="boot-ring"></div>
+  <div class="boot-brand">命 理</div>
+  <div class="boot-sub">四柱排盘 · 起盘中</div>
+</div>
+<script type="module" src="/src/mingli/main.js"></script>
+</body>
+</html>

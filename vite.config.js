@@ -25,6 +25,7 @@ export default defineConfig(({ command, mode }) => ({
     rollupOptions: {
       input: mode === 'kanyu' ? { kanyu: 'kanyu.html' }
            : mode === 'qiliu' ? { qiliu: 'qiliu.html' }
+           : mode === 'mingli' ? { mingli: 'mingli.html' }
            : { main: 'index.html' },
     },
   },
