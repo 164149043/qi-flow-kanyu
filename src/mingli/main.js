@@ -121,17 +121,57 @@ function composeForm() {
 
 /* ---------- 四柱立轴 ---------- */
 function renderPillars(chart) {
-  return `<div class="pillars">${chart.pillars.map((p) => `
+  return `<div class="pillars">${chart.pillars.map((p, pi) => `
     <div class="pillar" data-pillar="${p.name}">
       ${p.kongDay ? '<span class="p-kong day" data-kong="day">空</span>' : p.kongYear ? '<span class="p-kong" data-kong="year">空</span>' : ''}
       <div class="p-name">${p.name}</div>
       <div class="p-shishen ${p.shiShen === '日主' ? 'dayg' : ''}" data-ss="${p.shiShen}">${p.shiShen}</div>
-      <div class="p-gan ${wxCls(p.gz)}" data-gz="${p.gz}">${p.gan}</div>
-      <div class="p-zhi ${zhiCls(p.zhi)}" data-gz="${p.gz}">${p.zhi}</div>
+      <div class="p-gan ${wxCls(p.gz)}" data-gan="${p.gan}" data-pi="${pi}">${p.gan}</div>
+      <div class="p-zhi ${zhiCls(p.zhi)}" data-zhi="${p.zhi}" data-pi="${pi}">${p.zhi}</div>
       <div class="p-hide"><small class="p-hide-cap">藏干</small>${p.hideGans.map((h) => `<div><b data-hide="${h.gan}">${h.gan}<small>${h.shiShen}</small></b></div>`).join('')}</div>
       <div class="p-xing">星运 <em data-xy="${p.xingYun}">${p.xingYun}</em></div>
+      ${(p.shensha || []).length ? `<div class="p-shensha">${p.shensha.map((s, si) => `<span class="ss-badge ss-${s.luck}" data-pi="${pi}" data-si="${si}">${s.name}</span>`).join('')}</div>` : ''}
       <div class="p-nayin ${p.naYin.length <= 3 ? 'short' : ''}" data-ny="${p.naYin}">${p.naYin}</div>
     </div>`).join('')}</div>`;
+}
+
+/* ---------- 细盘（格局 / 用神 / 通根） ---------- */
+function renderDetail(chart) {
+  const ys = chart.yongshen, gj = chart.geju;
+  return `
+  <section class="detail-sec">
+    <div class="detail-head"><h2>细盘</h2><span class="detail-sub">格局 · 用神 · 通根（点条目看讲法）</span></div>
+    <div class="detail-grid">
+      <div class="d-card" data-detail="geju">
+        <div class="d-cap">格局</div>
+        <div class="d-main">${esc(gj.main)}</div>
+        <div class="d-note">${esc(gj.via)}</div>
+        ${gj.special.length ? `<div class="d-note zhu">${gj.special.map(esc).join('<br>')}</div>` : ''}
+      </div>
+      <div class="d-card" data-detail="fuyi">
+        <div class="d-cap">用神 · 扶抑</div>
+        <div class="d-main">${esc(ys.fuyi.yong.join('、'))}</div>
+        <div class="d-note">${esc(ys.fuyi.text)}</div>
+      </div>
+      ${ys.bingyao ? `
+      <div class="d-card" data-detail="bingyao">
+        <div class="d-cap">用神 · 病药</div>
+        <div class="d-main">病 ${esc(ys.bingyao.bing)} · 药 ${esc(ys.bingyao.yao)}</div>
+        <div class="d-note">${esc(ys.bingyao.text)}</div>
+      </div>` : ''}
+      ${ys.tiaohou ? `
+      <div class="d-card" data-detail="tiaohou">
+        <div class="d-cap">用神 · 调候</div>
+        <div class="d-main">${esc(ys.tiaohou.yong.join('、'))}</div>
+        <div class="d-note">${esc(ys.tiaohou.text)}</div>
+      </div>` : ''}
+      <div class="d-card" data-detail="tonggen">
+        <div class="d-cap">通根</div>
+        <div class="d-main">${esc(ys.tonggen.label)} <small>${ys.tonggen.total}分</small></div>
+        <div class="d-note">${esc(ys.tonggen.text)}</div>
+      </div>
+    </div>
+  </section>`;
 }
 
 /* ---------- 五行环（SVG 五段弧） ---------- */
@@ -212,6 +252,40 @@ function drawerHtmlFor(target) {
   const gz = target.dataset.gz, ss = target.dataset.ss, xy = target.dataset.xy, ny = target.dataset.ny, wx = target.dataset.wx, hide = target.dataset.hide;
   const st = target.dataset.st, kong = target.dataset.kong;
   const dyIdx = target.dataset.dy;
+  // 神煞徽标
+  const pi = target.dataset.pi, si = target.dataset.si;
+  if (si !== undefined && pi !== undefined) {
+    const s = chart.pillars[pi]?.shensha?.[si];
+    if (s) return [s.name, `${['年', '月', '日', '时'][pi]}柱 · ${s.luck === '吉' ? '吉星' : s.luck === '凶' ? '凶煞' : '中性'} · ${s.src}`,
+      `<b>${s.name}</b>（${s.luck}）：${s.desc}<br><br>本盘落点：${esc(s.note)}。`];
+  }
+  // 天干粒度
+  const ganC = target.dataset.gan;
+  if (ganC && GAN_WUXING[ganC]) {
+    const p = chart.pillars[+target.dataset.pi || 0];
+    const ss = p.shiShen === '日主' ? '日主本人' : `对日主为<b>${p.shiShen}</b>`;
+    return [`${ganC} · 天干`, `${GAN_WUXING[ganC]} · ${chart.pillars[+target.dataset.pi || 0].name}`,
+      `<b>${ganC}</b>属${GAN_WUXING[ganC]}，居${p.name}天干，${ss}。${p.shiShen !== '日主' && SHI_SHEN_DESC[p.shiShen] ? SHI_SHEN_DESC[p.shiShen] + '。' : '「日主」即命主自身，其余干支都与它论生克。'}`];
+  }
+  // 地支粒度
+  const zhiC = target.dataset.zhi;
+  if (zhiC && ZHI_WUXING[zhiC]) {
+    const p = chart.pillars[+target.dataset.pi || 0];
+    return [`${zhiC} · 地支`, `${ZHI_WUXING[zhiC]} · ${p.name}`,
+      `<b>${zhiC}</b>属${ZHI_WUXING[zhiC]}，居${p.name}地支。所藏天干：${p.hideGans.map((h) => `<b>${h.gan}</b>(${h.shiShen})`).join('、')}——地支是「屋子」，藏干是屋里住的人，透出到天干者才直接管事。日主在此支为<b>${p.xingYun}</b>。`];
+  }
+  // 细盘条目
+  const dt = target.dataset.detail;
+  if (dt === 'geju') return ['格局 · 讲法', chart.geju.main,
+    `定格以<b>月令</b>为准：月支藏干透出到年/月/时干者，按其十神定名（如正官格、七杀格）；本气优先。比劫当月则另论：比肩临官为<b>建禄格</b>，阳日主劫财为<b>阳刃格</b>（五阴干无阳刃），其余为月劫格。<br><br>本盘：${esc(chart.geju.via)}。${chart.geju.special.length ? chart.geju.special.map(esc).join('<br>') : ''}`];
+  if (dt === 'fuyi') return ['用神 · 扶抑法', '看强弱',
+    `扶抑是「缺什么补什么、多什么泄什么」：身弱（帮扶日主的五行不足）用印、比劫帮扶；身强用食伤泄秀、财耗、官杀制约；中和取流通。<br><br>本盘：${esc(chart.yongshen.fuyi.text)}`];
+  if (dt === 'bingyao') return ['用神 · 病药法', '《神峰通考》',
+    `张神峰之法：命局最碍用神者即「病」，能去病者即「药」。药到之年，应吉最速。<br><br>本盘：${esc(chart.yongshen.bingyao?.text || '')}`];
+  if (dt === 'tiaohou') return ['用神 · 调候法', '《穷通宝鉴》',
+    `调候看「寒暖燥湿」：冬生宜火暖、夏生宜水润，如种庄稼先看天时。命局五行再平衡，过寒过热也难发力，故调候优先于扶抑参看。<br><br>本盘：${esc(chart.yongshen.tiaohou?.text || '')}`];
+  if (dt === 'tonggen') return ['通根 · 讲法', '得地评分',
+    `天干如树梢、地支如树根：日主在四支中有同五行藏干（尤其临官、帝旺之支）即「有根」，有根才经得起克泄。<br><br>评分＝得令(50) + 得地(30) + 得势(20)。<br><br>本盘：${esc(chart.yongshen.tonggen.text)}`];
   if (kong) {
     const p = target.closest('.pillar');
     const pn = p ? p.dataset.pillar : '';
@@ -269,6 +343,7 @@ function render() {
       </div>
       ${renderPillars(chart)}
       ${renderWxRing(chart)}
+      ${renderDetail(chart)}
       ${renderDayun(chart)}
       <div class="foot">传统命理文化 · 仅供研究参考</div>
     ` : `
@@ -343,7 +418,7 @@ function bind() {
 render();
 // 抽屉点选委托只挂一次（render 会重写 app 内部，委托在 app 上不受影响）
 app.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-gz],[data-ss],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong]');
+  const t = e.target.closest('[data-gz],[data-gan],[data-zhi],[data-ss],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong],[data-si],[data-detail]');
   if (!t) return;
   const hit = drawerHtmlFor(t);
   if (hit) openDrawer(hit[0], hit[1], hit[2]);

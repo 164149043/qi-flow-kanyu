@@ -14,6 +14,9 @@ import {
   GAN, ZHI, GAN_WUXING, GAN_YINYANG, CANG_GAN, NAYIN,
   ZS_STAGES, CHANGSHENG, WUXING_SHENG, WUXING_KE,
 } from './data.js';
+import { scanShensha } from './shensha.js';
+import { detectGeJu } from './geju.js';
+import { yongshenAll } from './yongshen.js';
 
 const { Solar, Lunar } = lunar;
 
@@ -169,6 +172,12 @@ export function buildChart(opt) {
     dayunList.push(item);
   }
 
+  // 神煞 / 格局 / 用神（M2 规则层）
+  const shensha = scanShensha({ gans, zhis, dayGan, gender });
+  pillars.forEach((p, i) => { p.shensha = shensha.perPillar[i]; });
+  const geju = detectGeJu(dayGan, gans, zhis, strength);
+  const yongshen = yongshenAll({ dayGan, pillars, wuxing, strength });
+
   // 农历/属相/星座等基础信息（公历文本一律从历法对象反查，农历输入时 ts 已无意义）
   const solarFinal = calendar === 'lunar' ? lunarObj.getSolar() : solar;
   const info = {
@@ -182,6 +191,7 @@ export function buildChart(opt) {
     input: { ...opt, appliedSolar: info.solarText },
     pillars, dayGan, dayWuxing: GAN_WUXING[dayGan],
     wuxing, strength,
+    shensha, geju, yongshen,
     dayun: {
       startYear: yun.getStartYear(), startMonth: yun.getStartMonth(), startDay: yun.getStartDay(),
       list: dayunList,

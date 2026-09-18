@@ -110,6 +110,28 @@ body {
 .pillar .p-nayin { margin-top: 4px; font-size: 10.5px; color: var(--ink-faint); letter-spacing: 1px; writing-mode: vertical-rl; margin-left: auto; margin-right: auto; height: 48px; }
 .pillar .p-nayin.short { writing-mode: horizontal-tb; height: auto; }
 
+/* 神煞徽标 */
+.pillar .p-shensha { margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
+.ss-badge { font-size: 10px; line-height: 1; padding: 3px 4px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; }
+.ss-badge:hover { filter: brightness(1.12); }
+.ss-吉 { color: #2e6e46; background: rgba(63, 125, 84, .12); }
+.ss-中 { color: #7a6428; background: rgba(176, 135, 63, .13); }
+.ss-凶 { color: #93362b; background: rgba(166, 58, 46, .11); }
+
+/* ─── 细盘（格局/用神/通根） ─── */
+.detail-sec { margin: 20px 0 0; }
+.detail-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 2px 10px; }
+.detail-head h2 { font-family: var(--kai); font-size: 17px; letter-spacing: 5px; }
+.detail-sub { font-size: 12px; color: var(--ink-faint); }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.d-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: box-shadow .15s; }
+.d-card:hover { box-shadow: 0 2px 10px rgba(38, 34, 44, .08); }
+.d-card .d-cap { font-size: 11px; color: var(--ink-faint); letter-spacing: 3px; }
+.d-card .d-main { font-family: var(--kai); font-size: 19px; margin: 4px 0 4px; letter-spacing: 1px; }
+.d-card .d-main small { font-size: 12px; color: var(--ink-faint); font-family: var(--sans); }
+.d-card .d-note { font-size: 12px; color: var(--ink-dim); line-height: 1.7; }
+.d-card .d-note.zhu { color: var(--zhu); }
+
 /* 五行着色：干支大字按五行染色（墨底描色，非数据图不用纯色） */
 .wx-mu { color: var(--wx-mu); } .wx-huo { color: var(--wx-huo); } .wx-tu { color: var(--wx-tu); }
 .wx-jin { color: var(--wx-jin); } .wx-shui { color: var(--wx-shui); }
