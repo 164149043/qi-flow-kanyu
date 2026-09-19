@@ -10,8 +10,6 @@ vite.config.js.timestamp-*
 .impeccable/
 .playwright-mcp/
 
-# 参考资料（本地对照用，不入库）
-test01/
 # 系统垃圾
 .DS_Store
 Thumbs.db

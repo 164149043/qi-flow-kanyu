@@ -55,7 +55,7 @@ export function palaceDir(i, j, W, H, f = 1) {
   return ci;   // cj 中：西/东
 }
 
-// 星 → 保留系数（连续档，原站 xunqi 同款）：fortune=(palaceBoost-0.7)/0.5 约 0.05~1，
+// 星 → 保留系数（连续档）：fortune=(palaceBoost-0.7)/0.5 约 0.05~1，
 // 吉星聚 ≈0.995/s（近不衰减），凶星泄 ≈0.924/s（衰减快）——悬浮盘三态文字与物理同源
 function starDrain(starN) {
   return 0.92 + 0.075 * ((palaceBoost(starN) - 0.7) / 0.5);

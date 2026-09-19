@@ -301,7 +301,7 @@ export class FluidSolver {
     }
   }
 
-  // 炁流·炁口：窄束扇形高速喷射（对齐 xunqi 参考版 injectSource）
+  // 炁流·炁口：窄束扇形高速喷射
   // 关键设计：r=2 小范围集中 + 高速(16~40) + 径向扇形速度 + dye率与速度挂钩
   // 高初速推动 dye 长距离扩散（短半衰期无妨，速度才是载体）
   injectQiPorts(dt) {

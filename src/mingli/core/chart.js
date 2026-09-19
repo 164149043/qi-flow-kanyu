@@ -5,7 +5,7 @@
  * 输出：完整排盘数据（四柱/十神/藏干/星运/空亡/纳音/五行强弱/大运）
  *
  * 历法与起运由 lunar-javascript 承担（节气切月、五鼠遁时、旬空推算），
- * 规则口径（五行打分权重、强弱分界、十神标注）自研，对拍 xunq 参考站。
+ * 规则口径（五行打分权重、强弱分界、十神标注）自研。
  *
  * 用法：buildChart({ year, month, day, hour, minute, gender, calendar, sect, tstOffsetMin })
  */

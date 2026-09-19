@@ -1,27 +1,46 @@
-// PlanEditor.js —— 户型图校准 + 识别 + 画笔编辑浮层（升级版）
-// ①旋转正北朝上 ②自动识别(Sauvola) ③灵敏度/去噪/膨胀/方法 实时调 ④画墙/擦除(可调笔刷) ⑤复位 ⑥确定
-// 性能：preprocess+binarize 只跑一次缓存 bin，滑块只触发轻量 binToGridSolid
+// PlanEditor.js —— 户型编辑浮层（两种模式）
+// open(image)：上传校准流程 ①旋转正北朝上 ②自动识别(Sauvola) ③调灵敏度/去噪/膨胀 ④编辑 ⑤确定
+// openDraw(solid, glass)：独立手绘 ①选材质(墙/窗) ②直线(Shift=正交)/矩形房间/笔刷/擦除 ③撤销/清空 ④确定（2026-09-19）
+// 性能：preprocess+binarize 只跑一次缓存 bin，滑块只触发轻量 binToGridSolid；格线参照层离屏缓存
 
 import { preprocessImage, binarize, binToGridSolid } from '../vision/LineDetector.js';
 
 export class PlanEditor {
-  constructor(gridW, gridH) {
+  constructor(gridW, gridH, cellMeters = 0.2) {
     this.gridW = gridW; this.gridH = gridH;
     this.SW = gridW + 2;
     this.cellPx = 8;
+    this.cellMeters = cellMeters;      // 米/格（粗细换算与标尺用）
     this.cw = gridW * this.cellPx; this.ch = gridH * this.cellPx;
     this.rotation = 0; this.scale = 1;
-    this.tool = 'draw'; this.brushSize = 2;
+    this.tool = 'brush'; this.mat = 'wall'; this.brushSize = 2;
     this.solid = null; this.glass = null; this.image = null; this.locked = false;
     this.gray = null; this.imgW = 0; this.imgH = 0; this.bin = null;
     this.recParams = { method: 'sauvola', window: 15, wallRatio: 0.10, dilate: 1, minSize: 6 };
-    this.history = [];                // 画笔撤销栈（每笔触一个 solid 快照）
+    this.history = [];                // 撤销栈（笔刷=每笔触一快照；直线/矩形=落墨前一快照）
     this.stage = 'calib';             // 阶段：calib(校准) | edit(识别+编辑)
+    this.mode = 'calib';              // 模式：calib(上传流程) | draw(独立手绘)
+    this._drag = null;                // 直线/矩形拖画 {a:[i,j], b:[i,j]}（拖动中只画幽灵，松手落墨）
+    this._drawing = false;            // 笔刷拖画中
   }
 
   open(image, onConfirm) {
+    this.mode = 'calib';
     this.image = image; this.onConfirm = onConfirm;
     this._buildDOM(); this._render();
+  }
+
+  // 独立手绘入口：内部持有副本，取消/未确定不影响调用方数组
+  openDraw(solid, glass, onConfirm) {
+    this.mode = 'draw';
+    this.onConfirm = onConfirm;
+    this.solid = new Uint8Array(solid);
+    this.glass = new Uint8Array(glass);
+    this.tool = 'line';               // 画墙主力=直线拖画
+    this._buildDOM();
+    this._setStage('edit');
+    this.hint.innerHTML = '🧱/🪟选材质 → <b style="color:#f88">╱直线</b>拖画(Shift=横平竖直) · ▭矩形画房间 · ✏️笔刷修细节 → ✅确定。<b>门/窗开合件放 3D 场景</b>';
+    this._render();
   }
 
   _buildDOM() {
@@ -41,12 +60,13 @@ export class PlanEditor {
         .pe-btn.active{background:#c80;border-color:#fa0;color:#fff}
         .pe-btn.primary{background:#2a6;color:#fff;border-color:#4c8}
         .pe-btn:disabled{opacity:.45;cursor:default}
+        .pe-sep{width:1px;height:18px;background:#444}
         .pe-hint{font-size:11px;color:#888;line-height:1.5}
       </style>
       <div class="plan-panel">
-        <h3>📐 户型图校准与编辑</h3>
+        <h3>${this.mode === 'draw' ? '📐 绘制户型' : '📐 户型图校准与编辑'}</h3>
         <canvas></canvas>
-        <div class="pe-row">
+        <div class="pe-row" id="peCalibRow">
           <label>旋转°<input type="range" id="peRot" min="-180" max="180" value="0"></label>
           <label>缩放<input type="range" id="peScale" min="50" max="200" value="100"></label>
           <button class="pe-btn" id="peRec">🔍 自动识别</button>
@@ -59,11 +79,15 @@ export class PlanEditor {
           <button class="pe-btn" id="peReset">↩ 复位</button>
         </div>
         <div class="pe-row" id="peEditRow" style="display:none">
-          <button class="pe-btn" id="peDraw">✏️ 画墙</button>
+          <button class="pe-btn active" id="peWall">🧱 墙</button>
+          <button class="pe-btn" id="peWin">🪟 窗</button>
+          <span class="pe-sep"></span>
+          <button class="pe-btn" id="peLine">╱ 直线</button>
+          <button class="pe-btn" id="peBrush">✏️ 笔刷</button>
+          <button class="pe-btn" id="peRect">▭ 矩形</button>
           <button class="pe-btn" id="peErase">🩹 擦除</button>
-          <button class="pe-btn" id="peWin">🪟 窗户</button>
           <button class="pe-btn" id="peUndo">↶ 撤销</button>
-          <label>笔刷<input type="range" id="peBrush" min="1" max="8" value="2"></label>
+          <label>粗细<input type="range" id="peSize" min="1" max="8" value="${this.brushSize}"><b id="peThk" style="color:#888;font-weight:400"></b></label>
           <button class="pe-btn" id="peClear">🗑 清空</button>
           <span style="flex:1"></span>
           <button class="pe-btn" id="peBack">◀ 上一步</button>
@@ -80,6 +104,12 @@ export class PlanEditor {
     this.hint = ov.querySelector('#peHint');
     const $ = (id) => ov.querySelector(id);
 
+    if (this.mode === 'draw') {           // 手绘模式：无图片，铺格线参照层；无校准可回
+      $('#peCalibRow').style.display = 'none';
+      $('#peBack').style.display = 'none';
+      this.gridLayer = this._makeGridLayer();
+    }
+
     this.rotInput = $('#peRot'); this.scaleInput = $('#peScale');
     this.rotInput.oninput = (e) => { if (!this.locked) { this.rotation = +e.target.value; this._render(); } };
     this.scaleInput.oninput = (e) => { if (!this.locked) { this.scale = +e.target.value / 100; this._render(); } };
@@ -93,55 +123,129 @@ export class PlanEditor {
       this._rebin();
     };
     $('#peReset').onclick = () => this._rebuild();   // 撤销画笔编辑，回到当前参数识别态
-    $('#peDraw').onclick = () => this._setTool('draw');
-    $('#peUndo').onclick = () => this._undo();
-    $('#peBack').onclick = () => this._setStage('calib');   // 上一步：回校准阶段
+    // 材质（墙/窗）与工具（直线/笔刷/矩形/擦除）两组独立：上传流程的"画墙笔刷"= 墙+笔刷
+    $('#peWall').onclick = () => this._setMat('wall');
+    $('#peWin').onclick = () => this._setMat('win');
+    $('#peLine').onclick = () => this._setTool('line');
+    $('#peBrush').onclick = () => this._setTool('brush');
+    $('#peRect').onclick = () => this._setTool('rect');
     $('#peErase').onclick = () => this._setTool('erase');
-    $('#peWin').onclick = () => this._setTool('window');
-    $('#peBrush').oninput = (e) => { this.brushSize = +e.target.value; };
-    $('#peClear').onclick = () => { if (this.solid) { this.solid.fill(0); if (this.glass) this.glass.fill(0); this._render(); } };
+    $('#peUndo').onclick = () => this._undo();
+    $('#peBack').onclick = () => this._setStage('calib');   // 上一步：回校准阶段（仅上传流程）
+    this.thkLabel = $('#peThk');
+    $('#peSize').oninput = (e) => { this.brushSize = +e.target.value; this._updThk(); };
+    // 清空两段确认（首点变红字"再点确认"，2.5s 超时复原）
+    let clearArm = null;
+    $('#peClear').onclick = (e) => {
+      const btn = e.currentTarget;
+      if (clearArm) {
+        clearTimeout(clearArm); clearArm = null; btn.textContent = '🗑 清空';
+        if (this.solid) { this.solid.fill(0); if (this.glass) this.glass.fill(0); this._render(); }
+        return;
+      }
+      btn.textContent = '⚠ 再点确认清空';
+      clearArm = setTimeout(() => { btn.textContent = '🗑 清空'; clearArm = null; }, 2500);
+    };
     $('#peCancel').onclick = () => this._close();
     $('#peOk').onclick = () => this._confirm();
 
-    // 画笔：按住左键拖动绘制
-    let drawing = false;
+    // 指针：笔刷=按下即画；直线/矩形=按下记起点、拖动画幽灵、松手才落墨（原地点击不落墨不留快照）
     const toGrid = (e) => {
       const r = this.canvas.getBoundingClientRect();
       const sx = this.cw / r.width, sy = this.ch / r.height;
       return [Math.floor((e.clientX - r.left) * sx / this.cellPx), Math.floor((e.clientY - r.top) * sy / this.cellPx)];
     };
-    this._onDown = (e) => { if (!this.solid) return; if (e.button !== undefined && e.button !== 0) return; this._pushHistory(); drawing = true; this._paint(toGrid(e)); };
-    this._onMove = (e) => { if (drawing) this._paint(toGrid(e)); };
-    this._onUp = () => { drawing = false; };
+    this._onDown = (e) => {
+      if (!this.solid) return;
+      if (e.button !== undefined && e.button !== 0) return;
+      const p = toGrid(e);
+      if (this.tool === 'line' || this.tool === 'rect') { this._drag = { a: p, b: p }; this._render(); return; }
+      this._pushHistory(); this._drawing = true; this._paint(p);
+    };
+    this._onMove = (e) => {
+      if (this._drawing) this._paint(toGrid(e));
+      else if (this._drag) { this._drag.b = this._ortho(toGrid(e), e.shiftKey); this._render(); }
+    };
+    this._onUp = () => {
+      this._drawing = false;
+      if (!this._drag) return;
+      const { a, b } = this._drag; this._drag = null;
+      if (a[0] !== b[0] || a[1] !== b[1]) {
+        this._pushHistory();
+        if (this.tool === 'line') this._paintLine(a, b); else this._paintRect(a, b);
+      }
+      this._render();
+    };
     this.canvas.addEventListener('pointerdown', this._onDown);
     this.canvas.addEventListener('pointermove', this._onMove);
     window.addEventListener('pointerup', this._onUp);
-    this._setTool('draw');
+    this._setTool(this.tool);
+    this._updThk();
+  }
+
+  // Shift 吸附：直线→横平竖直；矩形→正方形（户型以正交墙为主）
+  _ortho([i, j], snap) {
+    const a = this._drag?.a;
+    if (!snap || !a) return [i, j];
+    if (this.tool === 'rect') {
+      const d = Math.max(Math.abs(i - a[0]), Math.abs(j - a[1]));
+      return [a[0] + Math.sign(i - a[0] || 1) * d, a[1] + Math.sign(j - a[1] || 1) * d];
+    }
+    return Math.abs(i - a[0]) >= Math.abs(j - a[1]) ? [i, a[1]] : [a[0], j];
+  }
+
+  _setMat(m) {
+    this.mat = m;
+    this.overlay?.querySelectorAll('#peWall,#peWin').forEach(b => b.classList.remove('active'));
+    (m === 'wall' ? '#peWall' : '#peWin') && this.overlay?.querySelector(m === 'wall' ? '#peWall' : '#peWin')?.classList.add('active');
   }
 
   _setTool(t) {
     this.tool = t;
-    this.overlay?.querySelectorAll('#peDraw,#peErase,#peWin').forEach(b => b.classList.remove('active'));
-    const m = { draw: '#peDraw', erase: '#peErase', window: '#peWin' };
+    const m = { line: '#peLine', brush: '#peBrush', rect: '#peRect', erase: '#peErase' };
+    this.overlay?.querySelectorAll('#peLine,#peBrush,#peRect,#peErase').forEach(b => b.classList.remove('active'));
     this.overlay?.querySelector(m[t])?.classList.add('active');
+  }
+
+  // 粗细=笔刷圆章直径换算米数（cellMeters 米/格）
+  _updThk() { if (this.thkLabel) this.thkLabel.textContent = `≈${(this.brushSize * 2 * this.cellMeters).toFixed(1)}m`; }
+
+  // 单格落墨：erase 清两场；win=透光墙(实心+玻璃)；wall=实心清玻璃
+  _stamp(i, j) {
+    if (i < 0 || i >= this.gridW || j < 0 || j >= this.gridH) return;
+    const c = (i + 1) + this.SW * (j + 1);
+    if (this.tool === 'erase') { this.solid[c] = 0; if (this.glass) this.glass[c] = 0; }
+    else if (this.mat === 'win') { this.solid[c] = 1; if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2)); this.glass[c] = 1; }
+    else { this.solid[c] = 1; if (this.glass) this.glass[c] = 0; }
   }
 
   _paint([gi, gj]) {
     if (gi < 0 || gi >= this.gridW || gj < 0 || gj >= this.gridH) return;
-    const r = this.brushSize, r2 = r * r, tool = this.tool;
+    const r = this.brushSize, r2 = r * r;
     for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
       if (di * di + dj * dj > r2) continue;
-      const i = gi + di, j = gj + dj;
-      if (i < 0 || i >= this.gridW || j < 0 || j >= this.gridH) continue;
-      const c = (i + 1) + this.SW * (j + 1);
-      if (tool === 'draw') { this.solid[c] = 1; if (this.glass) this.glass[c] = 0; }
-      else if (tool === 'window') { this.solid[c] = 1; if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2)); this.glass[c] = 1; }
-      else { this.solid[c] = 0; if (this.glass) this.glass[c] = 0; }   // erase
+      this._stamp(gi + di, gj + dj);
     }
     this._render();
   }
 
-  // 画笔撤销：笔触(按下→松开)开始前快照入栈，上一步 pop 恢复
+  // 线段光栅化：半格步进防漏格，每步盖笔刷圆章（墙厚=2×粗细格）
+  _paintLine(a, b) {
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
+    for (let s = 0; s <= n; s++) {
+      const t = s / n;
+      this._paint([Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t)]);
+    }
+  }
+
+  _paintRect(a, b) {
+    const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]);
+    const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+    this._paintLine([x0, y0], [x1, y0]); this._paintLine([x1, y0], [x1, y1]);
+    this._paintLine([x1, y1], [x0, y1]); this._paintLine([x0, y1], [x0, y0]);
+  }
+
+  // 撤销：笔触/线/矩形 开始前快照入栈，撤销 pop 恢复
   _pushHistory() {
     if (!this.solid) return;
     this.history.push({ solid: new Uint8Array(this.solid), glass: this.glass ? new Uint8Array(this.glass) : null });
@@ -155,11 +259,12 @@ export class PlanEditor {
     this._render();
   }
 
-  // 阶段切换：calib(校准，可重新旋转/换图) | edit(识别+编辑)
+  // 阶段切换：calib(校准，可重新旋转/换图) | edit(识别+编辑)。手绘模式只进 edit
   _setStage(s) {
     this.stage = s;
     const $ = (id) => this.overlay.querySelector(id);
     if (s === 'calib') {
+      if (this.mode === 'draw') return;   // 手绘无校准阶段，防御性返回
       this.locked = false;
       this.rotInput.disabled = this.scaleInput.disabled = false;
       $('#peRecRow').style.display = 'none';
@@ -171,7 +276,7 @@ export class PlanEditor {
     } else {  // edit
       this.locked = true;
       this.rotInput.disabled = this.scaleInput.disabled = true;
-      $('#peRecRow').style.display = '';
+      $('#peRecRow').style.display = this.mode === 'draw' ? 'none' : '';
       $('#peEditRow').style.display = '';
     }
   }
@@ -184,7 +289,7 @@ export class PlanEditor {
     if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2));  // 窗户场（识别后用户可画窗）
     this._rebin();
     this._setStage('edit');
-    this.hint.innerHTML = '✅ 已识别(<b style="color:#f88">红=墙</b>)。调灵敏度/去噪/膨胀 → 画墙修正 → 确定。<b>上一步</b>=回校准';
+    this.hint.innerHTML = '✅ 已识别(<b style="color:#f88">红=墙</b>)。调灵敏度/去噪/膨胀 → 直线/矩形补墙 → 确定。<b>上一步</b>=回校准';
   }
 
   // 重跑二值化（方法/窗口变时，较重）
@@ -204,6 +309,27 @@ export class PlanEditor {
     this._render();
   }
 
+  // 手绘参照底：格线(每10格)+标尺(米)+中心十字，离屏缓存
+  _makeGridLayer() {
+    const cv = document.createElement('canvas'); cv.width = this.cw; cv.height = this.ch;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#0d0d11'; c.fillRect(0, 0, this.cw, this.ch);
+    c.font = '9px sans-serif'; c.textBaseline = 'top';
+    for (let i = 0; i <= this.gridW; i += 10) {
+      c.strokeStyle = i % 50 ? 'rgba(120,140,180,.09)' : 'rgba(120,140,180,.2)';
+      c.beginPath(); c.moveTo(i * this.cellPx + .5, 0); c.lineTo(i * this.cellPx + .5, this.ch); c.stroke();
+      if (i > 0 && i < this.gridW) { c.fillStyle = 'rgba(150,160,190,.45)'; c.fillText((i * this.cellMeters) + 'm', i * this.cellPx + 3, 2); }
+    }
+    for (let j = 0; j <= this.gridH; j += 10) {
+      c.strokeStyle = j % 50 ? 'rgba(120,140,180,.09)' : 'rgba(120,140,180,.2)';
+      c.beginPath(); c.moveTo(0, j * this.cellPx + .5); c.lineTo(this.cw, j * this.cellPx + .5); c.stroke();
+      if (j > 0 && j < this.gridH) { c.fillStyle = 'rgba(150,160,190,.45)'; c.fillText((j * this.cellMeters) + 'm', 2, j * this.cellPx + 3); }
+    }
+    c.strokeStyle = 'rgba(250,170,0,.14)';
+    c.beginPath(); c.moveTo(this.cw / 2, 0); c.lineTo(this.cw / 2, this.ch); c.moveTo(0, this.ch / 2); c.lineTo(this.cw, this.ch / 2); c.stroke();
+    return cv;
+  }
+
   _render() {
     const ctx = this.ctx;
     ctx.fillStyle = '#0d0d11';
@@ -217,6 +343,8 @@ export class PlanEditor {
       const dw = this.image.width * fit, dh = this.image.height * fit;
       ctx.drawImage(this.image, -dw / 2, -dh / 2, dw, dh);
       ctx.restore();
+    } else if (this.gridLayer) {
+      ctx.drawImage(this.gridLayer, 0, 0);   // 手绘模式：格线参照打底
     }
     if (this.solid) {
       for (let gj = 0; gj < this.gridH; gj++) for (let gi = 0; gi < this.gridW; gi++) {
@@ -226,6 +354,24 @@ export class PlanEditor {
         else continue;
         ctx.fillRect(gi * this.cellPx, gj * this.cellPx, this.cellPx, this.cellPx);
       }
+    }
+    if (this._drag) this._renderGhost(ctx);   // 直线/矩形拖动中的半透明预览
+  }
+
+  _renderGhost(ctx) {
+    const { a, b } = this._drag;
+    ctx.strokeStyle = this.tool === 'erase' ? 'rgba(190,190,200,.55)'
+      : this.mat === 'win' ? 'rgba(80,170,255,.55)' : 'rgba(255,70,70,.55)';
+    ctx.lineWidth = this.brushSize * 2 * this.cellPx * .8;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const px = (i, j) => [(i + .5) * this.cellPx, (j + .5) * this.cellPx];
+    if (this.tool === 'line') {
+      const [x0, y0] = px(a[0], a[1]), [x1, y1] = px(b[0], b[1]);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    } else {
+      const [x0, y0] = px(Math.min(a[0], b[0]), Math.min(a[1], b[1]));
+      const [x1, y1] = px(Math.max(a[0], b[0]), Math.max(a[1], b[1]));
+      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
     }
   }
 

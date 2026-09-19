@@ -205,6 +205,7 @@ const ICO = {
   qi: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2"/></svg>',
   lamp: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>',
   upload: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M12 3v12M7 8l5-5 5 5"/></svg>',
+  pencil: '<svg class="icon" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
   download: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M12 15V3M7 10l5 5 5-5"/></svg>',
   reset: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 4v4h4"/></svg>',
   pause: '<svg class="icon" viewBox="0 0 24 24"><rect x="7" y="5" width="3" height="14" rx="0.5"/><rect x="14" y="5" width="3" height="14" rx="0.5"/></svg>',
@@ -802,6 +803,33 @@ const viewGrp = document.createElement('div'); viewGrp.className = 'ctrl-grp vie
 const uploadBtn = document.createElement('button');
 uploadBtn.innerHTML = ico(ICO.upload, '上传户型图');
 viewGrp.appendChild(uploadBtn);
+// ── 手绘户型（2026-09-19）：PlanEditor 直开绘制模式，不上传图片；走 applyPlan 同一下游（结构件跨绘制存活）──
+const drawBtn = document.createElement('button');
+drawBtn.innerHTML = ico(ICO.pencil, '绘制户型');
+viewGrp.appendChild(drawBtn);
+drawBtn.onclick = () => {
+  const pick = document.createElement('div');
+  pick.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100';
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background:#1e1e28;padding:16px;border-radius:10px;border:1px solid #3a3a48;display:flex;flex-direction:column;gap:10px;min-width:250px';
+  panel.innerHTML = `<h3 style="margin:0;color:#fa0;font-size:15px">📐 绘制户型</h3><div style="font-size:12px;color:#999">从哪里开始画？</div>`;
+  const mk = (lab, fn) => {
+    const b = document.createElement('button');
+    b.textContent = lab;
+    b.style.cssText = 'background:#2c2c34;color:#ddd;border:1px solid #555;padding:8px;border-radius:4px;cursor:pointer;font-size:13px;text-align:left';
+    b.onmouseenter = () => b.style.borderColor = '#888';
+    b.onmouseleave = () => b.style.borderColor = '#555';
+    b.onclick = () => { pick.remove(); fn(); };
+    panel.appendChild(b);
+  };
+  const start = (s, g) => new PlanEditor(W, H, CELL).openDraw(s, g, (r) => applyPlan(r.solid, r.glass));
+  mk('🏠 沿用当前户型（在现有墙上改）', () => start(baseSolid, baseGlass));
+  mk('🗂 空白新画（自己搭房间）', () => start(new Uint8Array(SW * (H + 2)), new Uint8Array(SW * (H + 2))));
+  mk('取消', () => {});
+  pick.appendChild(panel);
+  pick.onclick = (e) => { if (e.target === pick) pick.remove(); };   // 点遮罩取消
+  document.body.appendChild(pick);
+};
 // ── 户型朝向对齐（2026-08-19）：上传图"上方 = 实际方位"八选一 ──
 // 原理：建筑网格不动（保流体/采光 mask 完整），转"方位参考系"——地板八宅/九星扇区旋转对齐罗盘，
 // 环境风注入角与太阳方位按 地理−偏移 换算进网格（窗朝南=真朝南晒，北风=真从地理北吹来）。
@@ -1372,7 +1400,7 @@ fileInput.onchange = (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     const img = new Image();
-    img.onload = () => new PlanEditor(W, H).open(img, (r) => applyPlan(r.solid, r.glass));
+    img.onload = () => new PlanEditor(W, H, CELL).open(img, (r) => applyPlan(r.solid, r.glass));
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
@@ -1808,7 +1836,7 @@ jiuxingPlane.position.y = 0.007;
 jiuxingPlane.visible = false;   // 地板涂色层退役：九星改悬浮宫盘（palaceFloatGroup）
 scene3d.scene.add(jiuxingPlane);
 
-// ===== 悬浮式九宫盘 + 八宅标签（2026-08-18，对齐原站 xunqi 悬浮宫盘形态）=====
+// ===== 悬浮式九宫盘 + 八宅标签（2026-08-18）=====
 // 每宫 = 贴地能量盘（平躺 PlaneGeometry，PALACE_DISC_H）+ 悬浮 Sprite 标签（PALACE_LABEL_H，
 // depthTest=false + renderOrder=99 → 常浮于墙体/模型之上不被遮挡）。高度常量在文件顶部。
 const palaceFloatGroup = new THREE.Group();
