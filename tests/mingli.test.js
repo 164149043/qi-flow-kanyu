@@ -10,6 +10,8 @@ import { CANG_GAN } from '../src/mingli/core/data.js';
 import { scanShensha } from '../src/mingli/core/shensha.js';
 import { detectGeJu } from '../src/mingli/core/geju.js';
 import { tiaohouOf, tongGenScore } from '../src/mingli/core/yongshen.js';
+import { equationOfTime, trueSolarOffset } from '../src/mingli/core/truesolar.js';
+import { hePan } from '../src/mingli/core/hepan.js';
 
 describe('十神 shiShen（以日主为我）', () => {
   it('己土日主四关系', () => {
@@ -153,12 +155,20 @@ describe('历法边界', () => {
 
 describe('M2 · 神煞落点（1988-08-22 14:30 男）', () => {
   const c = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 30, gender: 1 });
-  it('按柱命中（吉→中→凶排序）：年[太极,红艳] 月[金舆,天乙,亡神] 日[文昌,桃花] 时[太极]', () => {
+  it('按柱命中（与参考站全量对齐）：年[太极,红艳,华盖] 月[金舆,天乙,亡神] 日[文昌,将星,桃花] 时[太极,羊刃]', () => {
     const names = (i) => c.pillars[i].shensha.map((s) => s.name);
-    expect(names(0)).toEqual(['太极贵人', '红艳']);
+    expect(names(0)).toEqual(['太极贵人', '红艳', '华盖']);
     expect(names(1)).toEqual(['金舆', '天乙贵人', '亡神']);
-    expect(names(2)).toEqual(['文昌', '桃花']);
-    expect(names(3)).toEqual(['太极贵人']);
+    expect(names(2)).toEqual(['文昌', '将星', '桃花']);
+    expect(names(3)).toEqual(['太极贵人', '羊刃']);
+  });
+  it('羊刃从顺行派：己日干刃在未（阴干禄后一位）', () => {
+    const ss = scanShensha({ gans: ['甲', '甲', '己', '甲'], zhis: ['子', '子', '子', '未'], dayGan: '己' });
+    expect(ss.perPillar[3].some((s) => s.id === 'yangren')).toBe(true);
+  });
+  it('将星/华盖旺库自坐也算：巳酉丑日支酉自坐将星', () => {
+    const ss = scanShensha({ gans: ['甲', '甲', '甲', '甲'], zhis: ['子', '子', '酉', '子'], dayGan: '甲' });
+    expect(ss.perPillar[2].some((s) => s.id === 'jiangxing')).toBe(true);
   });
   it('建禄：甲日干见寅支为禄神', () => {
     const ss = scanShensha({ gans: ['甲', 'x', '甲', 'x'], zhis: ['x', 'x', 'x', '寅'], dayGan: '甲' });
@@ -204,3 +214,122 @@ describe('M2 · 用神三路与通根', () => {
     expect(tg.label).toBe('有根');
   });
 });
+
+describe('M3 · 真太阳时', () => {
+  it('均时差极值：2 月中约 -14 分、11 月初约 +16 分、4 月中近 0', () => {
+    const feb = equationOfTime(new Date(2026, 1, 13));
+    const nov = equationOfTime(new Date(2026, 10, 3));
+    const apr = equationOfTime(new Date(2026, 3, 15));
+    expect(feb).toBeLessThan(-13.5);
+    expect(feb).toBeGreaterThan(-16);
+    expect(nov).toBeGreaterThan(15.5);
+    expect(nov).toBeLessThan(17);
+    expect(Math.abs(apr)).toBeLessThan(1);
+  });
+  it('成都：经度差 -64 分为负（西于东经120°）', () => {
+    const r = trueSolarOffset({ year: 2026, month: 9, day: 18 }, '成都');
+    expect(r.ok).toBe(true);
+    expect(r.lonDelta).toBeCloseTo(-63.7, 0);
+  });
+  it('未识别城市返回 ok:false 不校正', () => {
+    expect(trueSolarOffset({ year: 2026, month: 9, day: 18 }, 'Atlantis').ok).toBe(false);
+  });
+  it('城市真太阳时改柱：乌鲁木齐 12:40 → 偏移约 -83 分跨回上一时辰', () => {
+    const raw = buildChart({ year: 2026, month: 9, day: 18, hour: 12, minute: 40 });
+    const r = trueSolarOffset({ year: 2026, month: 9, day: 18 }, '乌鲁木齐');
+    const tst = buildChart({ year: 2026, month: 9, day: 18, hour: 12, minute: 40, tstOffsetMin: r.offsetMin });
+    expect(raw.pillars[3].gz).not.toBe(tst.pillars[3].gz);
+  });
+});
+
+describe('M3 · 合盘', () => {
+  const A = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 30, gender: 1 });
+  const B = buildChart({ year: 1992, month: 6, day: 15, hour: 10, minute: 0, gender: 0 });
+  const he = hePan(A, B);
+  it('年支辰⇄申判三合（吉）', () => {
+    const item = he.items.find((i) => i.cap === '年支根基');
+    expect(item.main).toContain('三合');
+    expect(item.luck).toBe('吉');
+  });
+  it('日支酉⇄戌判相害（凶）', () => {
+    const item = he.items.find((i) => i.cap === '日支互看');
+    expect(item.main).toContain('相害');
+    expect(item.luck).toBe('凶');
+  });
+  it('日干五合：甲己盘出「日干五合」条目', () => {
+    const X = buildChart({ year: 2024, month: 2, day: 10, hour: 12, minute: 0, gender: 1 }); // 02-10 甲辰日 → 甲日主
+    const Y = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 30, gender: 0 }); // 己酉日 → 己日主
+    const h = hePan(X, Y);
+    expect(h.items.some((i) => i.cap === '日干五合' && i.luck === '吉')).toBe(true);
+  });
+  it('参考分范围 20~98 且有汇总语', () => {
+    expect(he.score).toBeGreaterThanOrEqual(20);
+    expect(he.score).toBeLessThanOrEqual(98);
+    expect(he.summary).toContain('参考分');
+  });
+});
+
+describe('M3b · 流年与命宫胎元（1988-08-22 14:30 男）', () => {
+  const c = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 30, gender: 1 });
+  it('命宫甲寅（处暑未过，月数不进）', () => {
+    expect(c.mGong.gz).toBe('甲寅');
+    expect(c.mGong.naYin).toBe('大溪水');
+    expect(c.mGong.shiShen).toBe('正官');
+  });
+  it('胎元辛亥（庚申月：干进一、支进三）', () => {
+    expect(c.tYuan.gz).toBe('辛亥');
+    expect(c.tYuan.naYin).toBe('钗钏金');
+  });
+  it('过中气月数进一：处暑后一天生人命宫支不变/干随月变', () => {
+    const c2 = buildChart({ year: 1988, month: 8, day: 24, hour: 14, minute: 30, gender: 1 });
+    // 8/24 已过处暑(8/23)，月数进一 → 宫移一位
+    expect(c2.mGong.gz).not.toBe(c.mGong.gz);
+  });
+  it('大运三步癸亥的流年：2022 壬寅冲月、2023 癸卯冲日', () => {
+    const dy3 = c.dayun.list[3];
+    expect(dy3.ganZhi).toBe('癸亥');
+    expect(dy3.liuNian).toHaveLength(10);
+    expect(dy3.liuNian[0]).toMatchObject({ year: 2014, ganZhi: '甲午', age: 27, shiShen: '正官' });
+    expect(dy3.liuNian.find((l) => l.year === 2022).chongYue).toBe(true);
+    expect(dy3.liuNian.find((l) => l.year === 2023).chongRi).toBe(true);
+  });
+});
+
+describe('M4 · 十神盘点（1988-08-22 14:30 男）', () => {
+  const c = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 30, gender: 1 });
+  const get = (n) => c.ssTally.find((t) => t.name === n);
+  it('劫财3处（年干透+辰藏+申藏）', () => {
+    const t = get('劫财');
+    expect(t.count).toBe(3);
+    expect(t.tou).toEqual(['年干戊']);
+    expect(t.cang).toEqual(['年支辰藏戊', '月支申藏戊']);
+  });
+  it('伤官2处（月干透+申藏本气）', () => {
+    const t = get('伤官');
+    expect(t.count).toBe(2);
+    expect(t.tou).toEqual(['月干庚']);
+    expect(t.cang).toEqual(['月支申藏庚']);
+  });
+  it('正官正印未现（count=0）', () => {
+    expect(get('正官').count).toBe(0);
+    expect(get('正印').count).toBe(0);
+  });
+  it('十神总数=天干3+藏干10=13', () => {
+    expect(c.ssTally.reduce((s, t) => s + t.count, 0)).toBe(13);
+  });
+});
+
+describe('M4b · 复核回归（全量审查抓出项）', () => {
+  it('纳音用字对齐权威：甲午/乙未＝沙中金（非砂）', () => {
+    const { NAYIN } = awaitImport();
+    expect(NAYIN['甲午']).toBe('沙中金');
+    expect(NAYIN['乙未']).toBe('沙中金');
+  });
+  it('禄神同支多柱双标：丁日干、日支+时支皆午 → 两柱都标', () => {
+    const ss = scanShensha({ gans: ['甲', '甲', '丁', '丁'], zhis: ['卯', '酉', '午', '午'], dayGan: '丁' });
+    expect(ss.perPillar[2].some((s) => s.id === 'lushen')).toBe(true);
+    expect(ss.perPillar[3].some((s) => s.id === 'lushen')).toBe(true);
+  });
+});
+import { NAYIN as _NAYIN } from '../src/mingli/core/data.js';
+function awaitImport() { return { NAYIN: _NAYIN }; }
