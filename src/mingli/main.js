@@ -9,6 +9,15 @@ import { buildChart } from './core/chart.js';
 import {
   GAN_WUXING, ZHI_WUXING, GAN_YINYANG, SHI_SHEN_DESC,
 } from './core/data.js';
+import { CITY_LON, trueSolarOffset } from './core/truesolar.js';
+import { hePan } from './core/hepan.js';
+import { sourceBlock } from './core/classics.js';
+
+/* 神煞 id → 典籍条目（classics.js 键）；未收录者不显出处块 */
+const SS_CLASSICS = {
+  tianyi: 'tianyi', taohua: 'taohua', yima: 'yima', huagai: 'huagai', jiangxing: 'jiangxing',
+  jiesha: 'jiesha', yangren: 'yangren', lushen: 'lushen',
+};
 
 const $ = (s, el = document) => el.querySelector(s);
 const app = $('#app');
@@ -50,9 +59,23 @@ const STRENGTH_FULL = {
 /* ---------- 状态 ---------- */
 const state = {
   chart: null,
+  heResult: null,        // 合盘结果 { A, B, he }
+  mode: 'pan',           // 'pan' 排盘 | 'he' 合盘
+  viewPerson: 'A',       // 合盘模式下当前细看的单盘（A 甲 / B 乙）
   calendar: 'solar',
   advOpen: false,
   composeOpen: true,
+  cityA: '',             // 真太阳时城市（空＝不校正；合盘时甲/乙各一）
+  cityB: '',
+};
+
+/* ---------- 提示映射（喜用五行 → 方位/颜色/旺季） ---------- */
+const WX_HINT = {
+  '木': { fang: '东', se: '青绿', ji: '春', ye: '文教、出版、木业、园艺、纺织' },
+  '火': { fang: '南', se: '赤红', ji: '夏', ye: '能源、传媒、演艺、餐饮、光电' },
+  '土': { fang: '中部/西南', se: '黄棕', ji: '四季之末', ye: '地产、农业、建筑、仓储、中介' },
+  '金': { fang: '西', se: '白金银', ji: '秋', ye: '金融、五金、机械、司法、精密制造' },
+  '水': { fang: '北', se: '黑蓝', ji: '冬', ye: '航运、外贸、信息、流动、咨询' },
 };
 
 /* ---------- 工具 ---------- */
@@ -71,38 +94,55 @@ function renderCompose() {
     <div class="compose-folded" id="composeFold">
       <b>${esc(state.chart.input.year)}·${state.chart.input.month}·${state.chart.input.day}</b>
       <span>${state.chart.info.solarText.slice(0, 10)}</span>
-      <span style="margin-left:auto">重新排盘 ▾</span>
+      ${state.heResult ? '<span>⇄ 乙方盘</span>' : ''}
+      <span style="margin-left:auto">${state.heResult ? '重新合盘 ▾' : '重新排盘 ▾'}</span>
     </div>` : composeForm()}
   </section>`;
 }
 
 function composeForm() {
   const c = state.chart?.input || { year: 1990, month: 1, day: 1, hour: 12, minute: 0, gender: 1 };
+  const b = state.heResult?.B.input || { year: 1992, month: 6, day: 15, hour: 10, minute: 0, gender: 0 };
   const yearNow = new Date().getFullYear();
+  const person = (p, cc) => `
+      <div class="fld"><label>${p} · 年</label><input type="number" id="in${p}Year" value="${cc.year}" min="1900" max="${yearNow + 1}"></div>
+      <div class="fld"><label>月</label><input type="number" id="in${p}Month" value="${cc.month}" min="1" max="12" step="1"></div>
+      <div class="fld"><label>日</label><input type="number" id="in${p}Day" value="${cc.day}" min="1" max="30"></div>
+      <div class="fld"><label>时辰</label>
+        <select id="in${p}Hour">${Array.from({ length: 12 }, (_, i) => {
+          const h = (i * 2) % 24; // 时辰中点钟数：子0 丑2 寅4 … 亥22
+          const s = String((i * 2 + 23) % 24).padStart(2, '0');
+          const e = String((i * 2 + 1) % 24).padStart(2, '0');
+          return `<option value="${h}" ${+cc.hour === h || (h === 0 && +cc.hour === 23) ? 'selected' : ''}>${SHICHEN[i]}时 ${s}~${e}点</option>`;
+        }).join('')}</select>
+      </div>
+      <div class="fld"><label>性别</label>
+        <div class="seg" id="seg${p}Gender">
+          <button data-g="1" class="${cc.gender === 1 ? 'on' : ''}" title="男命（乾造）">男</button>
+          <button data-g="0" class="${cc.gender === 0 ? 'on' : ''}" title="女命（坤造）">女</button>
+        </div>
+      </div>`;
   return `
-    <div class="compose-row">
-      <div class="fld"><label>历法</label>
+    <div class="compose-row" style="margin-top:2px">
+      <div class="fld"><label>方式</label>
+        <div class="seg" id="segMode">
+          <button data-m="pan" class="${state.mode === 'pan' ? 'on' : ''}">单人排盘</button>
+          <button data-m="he" class="${state.mode === 'he' ? 'on' : ''}">双人合盘</button>
+        </div>
+      </div>
+      <div class="fld"><label>历法（甲乙共用）</label>
         <div class="seg" id="segCal">
           <button data-cal="solar" class="${state.calendar === 'solar' ? 'on' : ''}">公历</button>
           <button data-cal="lunar" class="${state.calendar === 'lunar' ? 'on' : ''}">农历</button>
         </div>
       </div>
-      <div class="fld"><label>年</label><input type="number" id="inYear" value="${c.year}" min="1900" max="${yearNow + 1}"></div>
-      <div class="fld"><label>月</label><input type="number" id="inMonth" value="${c.month}" min="1" max="12" step="1"></div>
-      <div class="fld"><label>日</label><input type="number" id="inDay" value="${c.day}" min="1" max="30"></div>
-      <div class="fld"><label>时辰</label>
-        <select id="inHour">${Array.from({ length: 24 }, (_, h) => {
-          const z = SHICHEN[Math.floor(((h + 1) % 24) / 2)];
-          return `<option value="${h}" ${+c.hour === h ? 'selected' : ''}>${String(h).padStart(2, '0')}时·${z}</option>`;
-        }).join('')}</select>
-      </div>
-      <div class="fld"><label>性别</label>
-        <div class="seg" id="segGender">
-          <button data-g="1" class="${c.gender === 1 ? 'on' : ''}" title="男命（乾造）">男</button>
-          <button data-g="0" class="${c.gender === 0 ? 'on' : ''}" title="女命（坤造）">女</button>
-        </div>
-      </div>
     </div>
+    ${state.mode === 'pan' ? `
+    <div class="compose-row">${person('甲', c)}</div>` : `
+    <div class="he-rows">
+      <div class="compose-row">${person('甲', c)}</div>
+      <div class="compose-row">${person('乙', b)}</div>
+    </div>`}
     <div class="adv-toggle" id="advToggle">校正 ▸ 派别 / 真太阳时</div>
     <div class="adv ${state.advOpen ? 'open' : ''}" id="advBox">
       <div class="fld"><label>换日派别</label>
@@ -111,10 +151,30 @@ function composeForm() {
           <button data-s="1" class="${+c.sect === 1 ? 'on' : ''}">子初换日</button>
         </div>
       </div>
-      <div class="fld"><label>真太阳时偏移(分)</label><input type="number" id="inTst" value="${c.tstOffsetMin || 0}" step="1" style="min-width:90px" placeholder="如 -24"></div>
+      ${state.mode === 'pan' ? `
+      <div class="fld"><label>出生城市（真太阳时）</label>
+        <select id="inCityA">
+          <option value="">（不校正）</option>
+          ${Object.keys(CITY_LON).map((k) => `<option value="${k}" ${state.cityA === k ? 'selected' : ''}>${k}</option>`).join('')}
+        </select>
+      </div>` : `
+      <div class="fld"><label>甲方城市</label>
+        <select id="inCityA">
+          <option value="">（不校正）</option>
+          ${Object.keys(CITY_LON).map((k) => `<option value="${k}" ${state.cityA === k ? 'selected' : ''}>${k}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fld"><label>乙方城市</label>
+        <select id="inCityB">
+          <option value="">（不校正）</option>
+          ${Object.keys(CITY_LON).map((k) => `<option value="${k}" ${state.cityB === k ? 'selected' : ''}>${k}</option>`).join('')}
+        </select>
+      </div>`}
+      <div class="fld"><label>或手动偏移(分)</label><input type="number" id="inTst" value="${c.tstOffsetMin || 0}" step="1" style="min-width:90px" placeholder="如 -24"></div>
     </div>
+    ${state.tstNote && state.mode === 'pan' ? `<p class="tst-note">${esc(state.tstNote)}</p>` : ''}
     <div class="go-row">
-      <button class="btn-go" id="btnGo">排 盘</button>
+      <button class="btn-go" id="btnGo">${state.mode === 'pan' ? '排 盘' : '合 盘'}</button>
       <span class="privacy">历法与排盘全部在本机完成</span>
     </div>`;
 }
@@ -232,6 +292,89 @@ function renderDayun(chart) {
   </section>`;
 }
 
+/* ---------- 合盘结果 ---------- */
+function renderHePan(hr) {
+  const row = (label, chart) => `
+    <div class="he-person">
+      <div class="he-tag">${label} · ${chart.input.gender === 1 ? '男' : '女'}</div>
+      <div class="he-gzs">${chart.pillars.map((p) => `<span class="he-gz ${wxCls(p.gz)}" data-gz="${p.gz}">${p.gz}</span>`).join('')}</div>
+      <div class="he-sub">${chart.info.solarText.slice(0, 10)} · 日主${chart.dayGan}${chart.dayWuxing} · ${chart.strength.label}</div>
+    </div>`;
+  return `
+  <section class="hepan-sec">
+    <div class="detail-head">
+      <h2>合盘</h2><span class="detail-sub">双人对照 · 参考分 ${hr.he.score}</span>
+      <div class="seg he-view-seg" id="segHeView" style="margin-left:auto">
+        <button data-v="A" class="${state.viewPerson === 'A' ? 'on' : ''}">细看甲盘</button>
+        <button data-v="B" class="${state.viewPerson === 'B' ? 'on' : ''}">细看乙盘</button>
+      </div>
+    </div>
+    <div class="he-pair">
+      ${row('甲方', hr.A)}
+      <div class="he-vs">⇄</div>
+      ${row('乙方', hr.B)}
+    </div>
+    <div class="he-summary">${esc(hr.he.summary)}</div>
+    <div class="he-items">${hr.he.items.map((it, i) => `
+      <div class="he-item he-${it.luck}" data-he="${i}">
+        <span class="he-cap">${esc(it.cap)}</span>
+        <span class="he-main">${esc(it.main)}</span>
+        <span class="he-note">${esc(it.note)}</span>
+      </div>`).join('')}</div>
+  </section>`;
+}
+
+/* ---------- 十神盘点（知识库式提示：命盘中有哪些十神、几处、在哪、缺哪些） ---------- */
+const SS_KNOWLEDGE = {
+  '比肩': { kin: '兄弟、朋友、同辈', img: '主自立、合伙、劳而有获；过旺则固执争财' },
+  '劫财': { kin: '竞争者、手足', img: '主豪爽行动力；亦主破耗竞争，守财为要' },
+  '食神': { kin: '口福、才华、晚辈（女命为子女）', img: '主温和厚道、艺术饮食之才，福气之源' },
+  '伤官': { kin: '技艺、才华之外显', img: '主聪明锋芒、创意出众；傲气伤官，须配印驾驭' },
+  '偏财': { kin: '父亲、意外之财', img: '主慷慨机变、善抓机遇；众人之财，忌比劫争夺' },
+  '正财': { kin: '妻（男命）、正当收入', img: '主勤俭务实、财自有方；身弱则财多身累' },
+  '七杀': { kin: '小人、强权、压力', img: '主魄力果决、乱世成名；有制为权，无制为祸' },
+  '正官': { kin: '丈夫（女命）、上司、名誉', img: '主自律名分、贵气官途；官多反为束缚' },
+  '偏印': { kin: '继母、偏门师承', img: '主悟性玄学、专技在身；孤僻多疑，喜财制之' },
+  '正印': { kin: '母亲、学业、庇荫', img: '主仁慈书香、得长辈提携；过旺则安逸依赖' },
+};
+
+function renderSsTally(chart) {
+  const on = chart.ssTally.filter((t) => t.count > 0);
+  const off = chart.ssTally.filter((t) => t.count === 0);
+  return `
+  <section class="detail-sec sstally-sec">
+    <div class="detail-head"><h2>十神</h2><span class="detail-sub">本盘实有（点看含义与落点）· 干＝天干明见，支＝地支暗藏</span></div>
+    <div class="ss-tally">
+      ${on.map((t) => `
+      <button class="sst-badge" data-ssname="${t.name}">
+        ${t.name}<i>${t.count}</i>
+        <small>干${t.tou.length} 支${t.cang.length}</small>
+      </button>`).join('')}
+    </div>
+    ${off.length ? `<div class="sst-off">未现：${off.map((t) => t.name).join('、')}——古法谓其所主六亲缘分偏淡，参看即可</div>` : ''}
+  </section>`;
+}
+
+/* ---------- 提示（喜用五行 → 方位颜色行业） ---------- */
+function renderTishi(chart) {
+  const yong = chart.yongshen.fuyi.yong.slice(0, 2);
+  return `
+  <section class="detail-sec tishi-sec">
+    <div class="detail-head"><h2>提示</h2><span class="detail-sub">喜用五行的生活参照（点卡看讲法）</span></div>
+    <div class="detail-grid">
+      ${yong.map((w, i) => {
+    const h = WX_HINT[w];
+    return `
+      <div class="d-card" data-tishi="${w}">
+        <div class="d-cap">${i === 0 ? '首选喜用' : '次选'} · ${w}</div>
+        <div class="d-main">${h.fang}方 · ${h.se}</div>
+        <div class="d-note">利${h.ji}；行业缘：${h.ye}。</div>
+      </div>`;
+  }).join('')}
+    </div>
+  </section>`;
+}
+
 /* ---------- 释义抽屉 ---------- */
 let drawerCtx = null;
 function openDrawer(title, tag, bodyHtml) {
@@ -248,7 +391,7 @@ function renderDrawer() {
     <div class="d-body">${drawerCtx.bodyHtml}</div>`;
 }
 function drawerHtmlFor(target) {
-  const chart = state.chart;
+  const chart = curChart();
   const gz = target.dataset.gz, ss = target.dataset.ss, xy = target.dataset.xy, ny = target.dataset.ny, wx = target.dataset.wx, hide = target.dataset.hide;
   const st = target.dataset.st, kong = target.dataset.kong;
   const dyIdx = target.dataset.dy;
@@ -257,7 +400,7 @@ function drawerHtmlFor(target) {
   if (si !== undefined && pi !== undefined) {
     const s = chart.pillars[pi]?.shensha?.[si];
     if (s) return [s.name, `${['年', '月', '日', '时'][pi]}柱 · ${s.luck === '吉' ? '吉星' : s.luck === '凶' ? '凶煞' : '中性'} · ${s.src}`,
-      `<b>${s.name}</b>（${s.luck}）：${s.desc}<br><br>本盘落点：${esc(s.note)}。`];
+      `<b>${s.name}</b>（${s.luck}）：${s.desc}<br><br>本盘落点：${esc(s.note)}。${sourceBlock(SS_CLASSICS[s.id])}`];
   }
   // 天干粒度
   const ganC = target.dataset.gan;
@@ -276,26 +419,40 @@ function drawerHtmlFor(target) {
   }
   // 细盘条目
   const dt = target.dataset.detail;
+  // 合盘条目：展开完整讲法
+  const heI = target.dataset.he;
+  if (heI !== undefined && state.heResult) {
+    const it = state.heResult.he.items[heI];
+    if (it) return [it.cap + ' · 讲法', it.main,
+      `${esc(it.note)}<br><br>合盘看「宫」重于看「星」：日支为婚姻宫、年支为根基宫，两宫相合相冲最切；日主生克只论相处姿态。<b>参考分只是条目计数</b>，不作吉凶定论。${sourceBlock('hepan')}`];
+  }
+  // 提示卡：喜用五行讲法
+  const ts = target.dataset.tishi;
+  if (ts && WX_HINT[ts]) {
+    const h = WX_HINT[ts];
+    return [`${ts} · 喜用讲法`, '生活参照',
+      `本盘喜用五行取「${ts}」，古法以方位、颜色、时令作参照：利<b>${h.fang}方</b>（居所、发展方位可参照）、喜<b>${h.se}</b>系、<b>${h.ji}</b>当令；行业缘起${h.ye}。<br><br>此为「取象比类」的传统参照法，当作文化参考即可，现实决策不必拘泥。`];
+  }
   if (dt === 'geju') return ['格局 · 讲法', chart.geju.main,
-    `定格以<b>月令</b>为准：月支藏干透出到年/月/时干者，按其十神定名（如正官格、七杀格）；本气优先。比劫当月则另论：比肩临官为<b>建禄格</b>，阳日主劫财为<b>阳刃格</b>（五阴干无阳刃），其余为月劫格。<br><br>本盘：${esc(chart.geju.via)}。${chart.geju.special.length ? chart.geju.special.map(esc).join('<br>') : ''}`];
+    `定格以<b>月令</b>为准：月支藏干透出到年/月/时干者，按其十神定名（如正官格、七杀格）；本气优先。比劫当月则另论：比肩临官为<b>建禄格</b>，阳日主劫财为<b>阳刃格</b>（五阴干无阳刃），其余为月劫格。<br><br>本盘：${esc(chart.geju.via)}。${chart.geju.special.length ? chart.geju.special.map(esc).join('<br>') : ''}${sourceBlock('geju')}`];
   if (dt === 'fuyi') return ['用神 · 扶抑法', '看强弱',
-    `扶抑是「缺什么补什么、多什么泄什么」：身弱（帮扶日主的五行不足）用印、比劫帮扶；身强用食伤泄秀、财耗、官杀制约；中和取流通。<br><br>本盘：${esc(chart.yongshen.fuyi.text)}`];
+    `扶抑是「缺什么补什么、多什么泄什么」：身弱（帮扶日主的五行不足）用印、比劫帮扶；身强用食伤泄秀、财耗、官杀制约；中和取流通。<br><br>本盘：${esc(chart.yongshen.fuyi.text)}${sourceBlock('fuyi')}`];
   if (dt === 'bingyao') return ['用神 · 病药法', '《神峰通考》',
-    `张神峰之法：命局最碍用神者即「病」，能去病者即「药」。药到之年，应吉最速。<br><br>本盘：${esc(chart.yongshen.bingyao?.text || '')}`];
+    `张神峰之法：命局最碍用神者即「病」，能去病者即「药」。药到之年，应吉最速。<br><br>本盘：${esc(chart.yongshen.bingyao?.text || '')}${sourceBlock('bingyao')}`];
   if (dt === 'tiaohou') return ['用神 · 调候法', '《穷通宝鉴》',
-    `调候看「寒暖燥湿」：冬生宜火暖、夏生宜水润，如种庄稼先看天时。命局五行再平衡，过寒过热也难发力，故调候优先于扶抑参看。<br><br>本盘：${esc(chart.yongshen.tiaohou?.text || '')}`];
+    `调候看「寒暖燥湿」：冬生宜火暖、夏生宜水润，如种庄稼先看天时。命局五行再平衡，过寒过热也难发力，故调候优先于扶抑参看。<br><br>本盘：${esc(chart.yongshen.tiaohou?.text || '')}${sourceBlock('tiaohou')}`];
   if (dt === 'tonggen') return ['通根 · 讲法', '得地评分',
-    `天干如树梢、地支如树根：日主在四支中有同五行藏干（尤其临官、帝旺之支）即「有根」，有根才经得起克泄。<br><br>评分＝得令(50) + 得地(30) + 得势(20)。<br><br>本盘：${esc(chart.yongshen.tonggen.text)}`];
+    `天干如树梢、地支如树根：日主在四支中有同五行藏干（尤其临官、帝旺之支）即「有根」，有根才经得起克泄。<br><br>评分＝得令(50) + 得地(30) + 得势(20)。<br><br>本盘：${esc(chart.yongshen.tonggen.text)}（得令得地得势为通行教学口径）`];
   if (kong) {
     const p = target.closest('.pillar');
     const pn = p ? p.dataset.pillar : '';
     return ['空亡', pn + (kong === 'day' ? ' · 逢日空' : ' · 逢年空'),
-      `「空亡」＝旬空：以${kong === 'day' ? '日' : '年'}柱干支所在旬推算，一旬十天、地支十二，必有两支轮空。此柱地支正逢轮空之支，古法谓其气「虚而不实」——吉凶入此减半，待逢「填实」「冲空」之岁而动。<b>非凶煞</b>，多主牵延、心性疏淡之感。`];
+      `「空亡」＝旬空：以${kong === 'day' ? '日' : '年'}柱干支所在旬推算，一旬十天、地支十二，必有两支轮空。此柱地支正逢轮空之支，古法谓其气「虚而不实」——吉凶入此减半，待逢「填实」「冲空」之岁而动。<b>非凶煞</b>，多主牵延、心性疏淡之感。${sourceBlock('kongwang')}`];
   }
   if (st && STRENGTH_DESC[st]) {
     const sameSide = chart.wuxing.scores[chart.strength.dayWuxing] + chart.wuxing.scores[chart.strength.yinWuxing];
     return [chart.strength.label + ' · 判法', '扶抑',
-      `${STRENGTH_FULL.body}<p>本盘：比劫（${chart.strength.dayWuxing}）${chart.wuxing.scores[chart.strength.dayWuxing]}分 + 印（${chart.strength.yinWuxing}）${chart.wuxing.scores[chart.strength.yinWuxing]}分 = ${sameSide}分，占 90 分的 <b>${chart.strength.pct}%</b> → <b>${chart.strength.label}</b>。</p>`];
+      `${STRENGTH_FULL.body}<p>本盘：比劫（${chart.strength.dayWuxing}）${chart.wuxing.scores[chart.strength.dayWuxing]}分 + 印（${chart.strength.yinWuxing}）${chart.wuxing.scores[chart.strength.yinWuxing]}分 = ${sameSide}分，占 90 分的 <b>${chart.strength.pct}%</b> → <b>${chart.strength.label}</b>。</p>${sourceBlock('fuyi')}`];
   }
   if (gz) {
     const p = chart.pillars.find((x) => x.gz === gz) || chart.dayun.list.find((x) => x.ganZhi === gz && x.shiShen);
@@ -306,11 +463,30 @@ function drawerHtmlFor(target) {
   }
   if (dyIdx !== undefined && chart.dayun.list[dyIdx]?.ganZhi) {
     const d = chart.dayun.list[dyIdx];
+    const rows = (d.liuNian || []).map((l) => `
+      <tr${l.chongRi ? ' style="color:var(--zhu);font-weight:600"' : ''}>
+        <td>${l.year}</td><td class="ln-gz">${l.ganZhi}</td><td>${l.age}岁</td><td>${l.shiShen}</td>
+        <td class="ln-flag">${l.chongRi ? '⚡冲日柱' : l.chongYue ? '⚡冲月柱' : l.heRi ? '⊙合日柱' : ''}</td>
+      </tr>`).join('');
     return [`${d.ganZhi} · 大运`, d.startAge + '～' + d.endAge + '岁',
-      `${d.startYear}–${d.endYear} 年行 <b>${d.ganZhi}</b>，天干透${d.shiShen}，地支藏${d.zhiShiShen}，纳音${d.naYin}，星运${d.xingYun}。`];
+      `${d.startYear}–${d.endYear} 年行 <b>${d.ganZhi}</b>（天干${d.shiShen}·地支藏${d.zhiShiShen}·纳音${d.naYin}·星运${d.xingYun}）。<br><br>这十年的流年（点此后逐年可察）：<table class="ln-table"><tr><th>年</th><th>干支</th><th>岁</th><th>十神</th><th>标记</th></tr>${rows}</table><br>⚡冲日柱/月柱之年多动象，⊙合日柱之年多缘至——标记只是提示应期，吉凶还看喜忌。`];
   }
+  // 命宫 / 胎元
+  const mg = target.dataset.mg, ty = target.dataset.ty;
+  if (mg) return ['命宫 · ' + mg, '神栖之宫',
+    `命宫 <b>${mg}</b>（纳音${chart.mGong.naYin}，宫干对日主为${chart.mGong.shiShen}）。古法以「神栖之宫」论：性向、心之所安与此宫气息相关，命宫得贵人禄马者心定神闲。算法：月数按节气（过中气进一月），十四减月减时落宫，五虎遁起宫干。${sourceBlock('minggong')}`];
+  if (ty) return ['胎元 · ' + ty, '受胎之月',
+    `胎元 <b>${ty}</b>（纳音${chart.tYuan.naYin}，对日主为${chart.tYuan.shiShen}）。受胎之月的干支——月干进一、月支进三。古以胎元补四柱之不足，与命宫、四柱合参。${sourceBlock('taiyuan')}`];
   if (ss && SHI_SHEN_DESC[ss]) return [ss, '十神', `<b>${ss}</b>：${SHI_SHEN_DESC[ss]}。`];
-  if (xy && XINGYUN_DESC[xy]) return [xy, '星运', `<b>${xy}</b>：${XINGYUN_DESC[xy]}（十二宫以此察日主在支之气势消长）。`];
+  // 十神盘点徽章：知识 + 命盘中分布
+  const ssn = target.dataset.ssname;
+  if (ssn && SS_KNOWLEDGE[ssn]) {
+    const t = chart.ssTally.find((x) => x.name === ssn);
+    const k = SS_KNOWLEDGE[ssn];
+    return [ssn + ' · 十神知识', `本盘共 ${t.count} 处`,
+      `<b>${ssn}</b>：${SHI_SHEN_DESC[ssn] || ''}<br>六亲物象：${k.kin}；${k.img}。<br><br><b>命盘中共 ${t.count} 处</b>（天干明见 ${t.tou.length} 处、地支暗藏 ${t.cang.length} 处）——<br>${t.count ? [...t.tou.map((p) => `${p}（在天干上，明处管事，力量显）`), ...t.cang.map((p) => `${p}（藏在地支里，伏而待用，力量隐）`)].map((l) => '· ' + l).join('<br>') : '本盘未现。'}<br><br>天干如明处当值，直接管事；地支藏干如屋里住的人，要等大运流年引出（行话叫「透出」）才发力。`];
+  }
+  if (xy && XINGYUN_DESC[xy]) return [xy, '星运', `<b>${xy}</b>：${XINGYUN_DESC[xy]}（十二宫以此察日主在支之气势消长）。${sourceBlock('xingyun')}`];
   if (ny) return [ny, '纳音', `此柱纳音 <b>${ny}</b>。六十甲子配三十音，古以年命纳音论命，后世多参看。`];
   if (wx && chart.wuxing.scores[wx] !== undefined) {
     const items = chart.wuxing.detail.filter((d0) => d0.wuxing === wx).map((d0) => `${d0.label}${d0.from} ${d0.score}分`).join('、');
@@ -324,8 +500,10 @@ function drawerHtmlFor(target) {
 }
 
 /* ---------- 主渲染 ---------- */
+/* 合盘时单盘细节跟随 viewPerson 切换（甲/乙任选其一细看），合盘对照区不受影响 */
+const curChart = () => (state.heResult ? (state.viewPerson === 'B' ? state.heResult.B : state.heResult.A) : state.chart);
 function render() {
-  const chart = state.chart;
+  const chart = curChart();
   app.innerHTML = `
   <header class="topbar">
     <h1>命 理</h1><span class="sub">四柱排盘</span>
@@ -340,10 +518,16 @@ function render() {
         <span>属<b>${esc(chart.info.shengXiao)}</b></span>
         ${chart.info.jieQi ? `<span>节气 <b>${esc(chart.info.jieQi)}</b></span>` : ''}
         <span>${chart.input.gender === 1 ? '乾造（男）' : '坤造（女）'}</span>
+        <span data-mg="${chart.mGong.gz}" style="cursor:pointer">命宫 <b>${chart.mGong.gz}</b></span>
+        <span data-ty="${chart.tYuan.gz}" style="cursor:pointer">胎元 <b>${chart.tYuan.gz}</b></span>
+        ${state.tstNote ? `<span>☀ ${esc(state.tstNote)}</span>` : ''}
       </div>
       ${renderPillars(chart)}
+      ${state.heResult ? renderHePan(state.heResult) : ''}
       ${renderWxRing(chart)}
+      ${renderSsTally(chart)}
       ${renderDetail(chart)}
+      ${renderTishi(chart)}
       ${renderDayun(chart)}
       <div class="foot">传统命理文化 · 仅供研究参考</div>
     ` : `
@@ -360,17 +544,24 @@ function render() {
 
 /* ---------- 事件 ---------- */
 function bind() {
+  const segMode = $('#segMode');
+  if (segMode) segMode.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.mode = b.dataset.m; render();
+  });
   const segCal = $('#segCal');
   if (segCal) segCal.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     state.calendar = b.dataset.cal; render();
   });
-  const segGender = $('#segGender');
-  if (segGender) segGender.addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    state._gender = +b.dataset.g;
-    b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-  });
+  // 性别 seg（甲/乙通用：按 id 前缀绑定，只切样式不改 state，提交时读取）
+  for (const p of ['甲', '乙']) {
+    const seg = $(`#seg${p}Gender`);
+    if (seg) seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    });
+  }
   const segSect = $('#segSect');
   if (segSect) segSect.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -383,20 +574,7 @@ function bind() {
   });
   const btnGo = $('#btnGo');
   if (btnGo) btnGo.addEventListener('click', () => {
-    try {
-      state.chart = buildChart({
-        year: +$('#inYear').value, month: +$('#inMonth').value, day: +$('#inDay').value,
-        hour: +$('#inHour').value, minute: 0,
-        gender: state._gender ?? state.chart?.input.gender ?? 1,
-        calendar: state.calendar,
-        sect: state._sect ?? state.chart?.input.sect ?? 2,
-        tstOffsetMin: +(($('#inTst')?.value) || 0) || 0,
-      });
-      state.composeOpen = false;
-      render();
-    } catch (err) {
-      alert('此历法组合不存在（如闰月/大小月越界），请核对后重试。');
-    }
+    try { go(); } catch (err) { alert('此历法组合不存在（如闰月/大小月越界），请核对后重试。'); }
   });
   const fold = $('#composeFold');
   if (fold) fold.addEventListener('click', () => { state.composeOpen = true; render(); });
@@ -406,6 +584,67 @@ function bind() {
   if (drawer) drawer.addEventListener('click', (e) => {
     if (e.target.closest('.d-close') || !e.target.closest('.drawer-in')) drawer.classList.remove('open');
   });
+  // 合盘：甲/乙单盘切换（上方立轴、五行环、细盘、大运随切）
+  const segHeView = $('#segHeView');
+  if (segHeView) segHeView.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.viewPerson = b.dataset.v;
+    render();
+  });
+  // 大运长河：滚到底撤渐隐
+  const river = $('.dayun-river');
+  if (river) {
+    const maskCheck = () => river.classList.toggle('no-mask', river.scrollLeft + river.clientWidth >= river.scrollWidth - 4);
+    maskCheck();
+    river.addEventListener('scroll', maskCheck, { passive: true });
+  }
+}
+
+/* 读表单 → 起盘/合盘 */
+function readPerson(p, fallback) {
+  const gBtn = $(`#seg${p}Gender button.on`);
+  return {
+    year: +$(`#in${p}Year`).value, month: +$(`#in${p}Month`).value, day: +$(`#in${p}Day`).value,
+    hour: +$(`#in${p}Hour`).value, minute: 0,
+    gender: gBtn ? +gBtn.dataset.g : fallback,
+    calendar: state.calendar,
+    sect: state._sect ?? state.chart?.input.sect ?? 2,
+  };
+}
+function tstOffsetFor(dateParts, which) {
+  const sel = which === 'B' ? '#inCityB' : '#inCityA';
+  const city = $(sel)?.value || '';
+  if (which === 'B') state.cityB = city; else state.cityA = city;
+  if (city && CITY_LON[city] !== undefined) {
+    const r = trueSolarOffset(dateParts, city);
+    if (which !== 'B') state.tstNote = r.note;
+    return r.offsetMin;
+  }
+  if (which !== 'B') {
+    const manual = +(($('#inTst')?.value) || 0) || 0;
+    state.tstNote = manual ? `手动偏移 ${manual > 0 ? '+' : ''}${manual} 分钟` : '';
+    return manual;
+  }
+  return 0;
+}
+function go() {
+  if (state.mode === 'pan') {
+    const base = readPerson('甲', state.chart?.input.gender ?? 1);
+    base.tstOffsetMin = tstOffsetFor(base, 'A');
+    state.chart = buildChart(base);
+    state.heResult = null;
+  } else {
+    const A = readPerson('甲', state.chart?.input.gender ?? 1);
+    const B = readPerson('乙', state.heResult?.B.input.gender ?? 0);
+    A.tstOffsetMin = tstOffsetFor(A, 'A');
+    B.tstOffsetMin = tstOffsetFor(B, 'B');
+    const cA = buildChart(A), cB = buildChart(B);
+    state.chart = cA;                    // 输入回填/默认展示基准
+    state.heResult = { A: cA, B: cB, he: hePan(cA, cB) };
+    state.viewPerson = 'A';
+  }
+  state.composeOpen = false;
+  render();
 }
 
 /* ---------- 启动 ---------- */
@@ -418,10 +657,19 @@ function bind() {
 render();
 // 抽屉点选委托只挂一次（render 会重写 app 内部，委托在 app 上不受影响）
 app.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-gz],[data-gan],[data-zhi],[data-ss],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong],[data-si],[data-detail]');
+  const t = e.target.closest('[data-gz],[data-gan],[data-zhi],[data-ss],[data-ssname],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong],[data-si],[data-detail],[data-he],[data-tishi],[data-mg],[data-ty]');
   if (!t) return;
   const hit = drawerHtmlFor(t);
-  if (hit) openDrawer(hit[0], hit[1], hit[2]);
+  if (hit) {
+    openDrawer(hit[0], hit[1], hit[2]);
+    e.stopPropagation(); // 拦住这次点击冒泡到 document，避免刚打开就被「点外关闭」收起
+  }
+});
+// 点外关闭：抽屉开着时，落点不在抽屉内容里的任意点击都收起（一次性挂载，不随 render 重建）
+document.addEventListener('click', (e) => {
+  const d = document.getElementById('drawer');
+  if (!d || !d.classList.contains('open')) return;
+  if (!e.target.closest('.drawer-in')) d.classList.remove('open');
 });
 const boot = document.getElementById('boot');
 if (boot) { boot.classList.add('hide'); setTimeout(() => boot.remove(), 600); }
