@@ -40,7 +40,7 @@ const app = document.getElementById('app');
 
 // Initialize Vercel Analytics
 inject();
-app.appendChild(renderNav('kanyu'));
+app.appendChild(renderNav());
 
 const data = {}; // { bazhai, yearFx, xuankong, score }
 let floorplanImg = null; // 户型图底图（上传后赋值）
