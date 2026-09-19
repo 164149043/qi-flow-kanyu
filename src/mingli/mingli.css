@@ -84,6 +84,19 @@ body {
 .btn-go:active { transform: translateY(1px); }
 .privacy { font-size: 11px; color: var(--ink-faint); }
 
+/* ─── 干支关系汇总行 ─── */
+.rel-line { margin: 10px 2px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 7px; }
+.rel-cap { font-size: 12px; color: var(--ink-faint); letter-spacing: 2px; margin-right: 2px; }
+.rel-badge {
+  font: inherit; font-size: 12px; letter-spacing: .5px; cursor: pointer;
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: 5px;
+  background: var(--card); color: var(--ink-dim); padding: 3px 7px;
+}
+.rel-badge:hover { box-shadow: 0 1px 6px rgba(38, 34, 44, .1); color: var(--ink); }
+.rel-吉 { border-left-color: var(--wx-mu); }
+.rel-中 { border-left-color: var(--jin); }
+.rel-凶 { border-left-color: var(--zhu); }
+
 /* ─── 盘面信息行 ─── */
 .meta-line { margin: 16px 2px 0; font-size: 13px; color: var(--ink-dim); display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .meta-line b { color: var(--ink); font-weight: 600; }
