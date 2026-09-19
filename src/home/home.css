@@ -169,7 +169,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-faint);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
 }
-.foot-brand { font-family: var(--font-kai); letter-spacing: 3px; color: var(--ink-dim); }
+.foot-brand { font-family: var(--font-kai); font-size: 16px; letter-spacing: 3px; color: var(--ink-dim); }
 
 /* ===== 断点 ===== */
 @media (max-width: 1023px) {
