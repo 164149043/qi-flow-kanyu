@@ -21,8 +21,9 @@ const BY_DAYGAN = {
   },
   'yangren': {
     name: '羊刃', luck: '凶',
-    map: { '甲': '卯', '丙': '午', '戊': '午', '庚': '酉', '壬': '子' },
-    desc: '阳干帝旺之支，旺极成刃。主刚烈果决、胆识过人，亦主伤灾破财，喜七杀制之。',
+    // 阳干帝旺、阴干禄后一位（顺行派）；阴刃另有禄前一派，历代存异
+    map: { '甲': '卯', '乙': '辰', '丙': '午', '丁': '未', '戊': '午', '己': '未', '庚': '酉', '辛': '戌', '壬': '子', '癸': '丑' },
+    desc: '帝旺之支，旺极成刃。主刚烈果决、胆识过人，亦主伤灾破财，喜七杀制之（羊刃驾杀主权贵）。阴干之刃历代有两派查法（禄后/禄前一位），此处从顺行派，阳干诸书一致。',
     src: '《渊海子平》',
   },
   'wenchang': {
@@ -46,7 +47,7 @@ const BY_DAYGAN = {
   'tianyi': {
     name: '天乙贵人', luck: '吉',
     map: { '甲': ['丑', '未'], '戊': ['丑', '未'], '庚': ['丑', '未'], '乙': ['子', '申'], '己': ['子', '申'], '丙': ['亥', '酉'], '丁': ['亥', '酉'], '壬': ['卯', '巳'], '癸': ['卯', '巳'], '辛': ['午', '寅'] },
-    desc: '众煞之首贵人。一生多逢凶化吉、得人提携，危难有救。口诀「甲戊庚牛羊，乙己鼠猴乡，丙丁猪鸡位，壬癸兔蛇藏，庚辛逢马虎」。',
+    desc: '众煞之首贵人。一生多逢凶化吉、得人提携，危难有救。口诀「甲戊庚牛羊，乙己鼠猴乡，丙丁猪鸡位，壬癸兔蛇藏，六辛逢马虎，此是贵人方」。',
     src: '《渊海子平》',
   },
   'taiji': {
@@ -140,29 +141,29 @@ export function scanShensha(ctx) {
     seen.add(key);
     perPillar[i].push(e);
   };
-  const zhiOf = (z) => zhis.indexOf(z);
-
-  // 以日干查：落对应地支之柱
+  // 以日干查：所有匹配地支之柱都标（同支多柱不漏标）
   for (const id in BY_DAYGAN) {
     const r = BY_DAYGAN[id];
     const target = r.map[dayGan];
     const targets = Array.isArray(target) ? target : [target];
     for (const t of targets) {
-      const i = zhiOf(t);
-      if (i >= 0) push(i, { id, name: r.name, luck: r.luck, src: r.src, desc: r.desc, note: `日干${dayGan}见${t}，落${PILLAR_SHORT[i]}支` });
+      zhis.forEach((z, i) => {
+        if (z === t) push(i, { id, name: r.name, luck: r.luck, src: r.src, desc: r.desc, note: `日干${dayGan}见${t}，落${PILLAR_SHORT[i]}支` });
+      });
     }
   }
 
-  // 三合局神煞：年支、日支各起一次
+  // 三合局神煞：年支、日支各起一次；将星/华盖为三合旺支/库支本身，起查支自身命中也算
   for (const id in BY_SANHE) {
     const r = BY_SANHE[id];
+    const selfHit = id === 'jiangxing' || id === 'huagai'; // 旺支/库支自坐
     for (const anchor of [0, 2]) {
       const g = SANHE_GROUP[zhis[anchor]];
       if (g === undefined) continue;
       const t = r.at[g];
       for (let i = 0; i < 4; i++) {
-        if (i === anchor) continue;
-        if (zhis[i] === t) push(i, { id, name: r.name, luck: r.luck, src: r.src, desc: r.desc, note: `${PILLAR_SHORT[anchor]}支${zhis[anchor]}起，见${t}，落${PILLAR_SHORT[i]}支` });
+        if (i === anchor && !selfHit) continue;
+        if (zhis[i] === t) push(i, { id, name: r.name, luck: r.luck, src: r.src, desc: r.desc, note: `${PILLAR_SHORT[anchor]}支${zhis[anchor]}起，见${t}${i === anchor ? '（自坐）' : ''}，落${PILLAR_SHORT[i]}支` });
       }
     }
   }
