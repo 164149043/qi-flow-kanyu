@@ -12,7 +12,7 @@
 import lunar from 'lunar-javascript';
 import {
   GAN, ZHI, GAN_WUXING, GAN_YINYANG, CANG_GAN, NAYIN,
-  ZS_STAGES, CHANGSHENG, WUXING_SHENG, WUXING_KE,
+  ZS_STAGES, CHANGSHENG, WUXING_SHENG, WUXING_KE, ZHI_CHONG, ZHI_LIUHE,
 } from './data.js';
 import { scanShensha } from './shensha.js';
 import { detectGeJu } from './geju.js';
@@ -99,6 +99,35 @@ export function strengthAnalysis(dayGan, scoreResult) {
   return { dayWuxing: dw, yinWuxing: yin, sameSide: +sameSide.toFixed(1), total: +total.toFixed(1), pct, label, code };
 }
 
+/* ---------- 命宫（神栖之宫，含中气修正） ----------
+ * 口径：月数按节气月（寅=1），生辰已过本月中气则月数进一；
+ * 宫数 = 14 - 月数 - 时数（时数寅=1），落宫以寅起数；
+ * 宫干按五虎遁（年上起月）排至宫支。
+ */
+const ZHONGQI = { '寅': '雨水', '卯': '春分', '辰': '谷雨', '巳': '小满', '午': '夏至', '未': '大暑', '申': '处暑', '酉': '秋分', '戌': '霜降', '亥': '小雪', '子': '冬至', '丑': '大寒' };
+const WUHU_DUN = { '甲': '丙', '己': '丙', '乙': '戊', '庚': '戊', '丙': '庚', '辛': '庚', '丁': '壬', '壬': '壬', '戊': '甲', '癸': '甲' };
+
+export function mingGong(lunarObj, yearGan, monthZhi, hourZhi) {
+  let mNum = (ZHI.indexOf(monthZhi) - 2 + 12) % 12 + 1;
+  const zq = lunarObj.getJieQiTable()[ZHONGQI[monthZhi]];
+  if (zq) {
+    const s = lunarObj.getSolar();
+    const passed = s.getYear() * 10000 + s.getMonth() * 100 + s.getDay() >= zq.getYear() * 10000 + zq.getMonth() * 100 + zq.getDay();
+    if (passed) mNum = (mNum % 12) + 1;
+  }
+  const hNum = (ZHI.indexOf(hourZhi) - 2 + 12) % 12 + 1;
+  let gong = ((14 - mNum - hNum) % 12 + 12) % 12;
+  if (gong === 0) gong = 12;
+  const gongZhi = ZHI[(gong + 1) % 12];
+  const gongGan = GAN[(GAN.indexOf(WUHU_DUN[yearGan]) + gong - 1) % 10];
+  return gongGan + gongZhi;
+}
+
+/* ---------- 胎元（受胎之月）：月干进一、月支进三 ---------- */
+export function taiYuan(monthGz) {
+  return GAN[(GAN.indexOf(monthGz[0]) + 1) % 10] + ZHI[(ZHI.indexOf(monthGz[1]) + 3) % 12];
+}
+
 /* ---------- 主入口：buildChart ---------- */
 export function buildChart(opt) {
   const {
@@ -168,6 +197,18 @@ export function buildChart(opt) {
       item.zhiShiShen = shiShen(dayGan, CANG_GAN[dz][0]);
       item.naYin = NAYIN[item.ganZhi] || '';
       item.xingYun = zhangSheng(dayGan, dz);
+      // 该步十年流年：干支/十神/岁数，标与日支、月支的冲合
+      item.liuNian = d.getLiuNian().map((ln) => {
+        const gz = ln.getGanZhi();
+        const lz = gz[1];
+        return {
+          year: ln.getYear(), ganZhi: gz, age: ln.getAge(),
+          shiShen: shiShen(dayGan, gz[0]),
+          chongRi: ZHI_CHONG[lz] === zhis[2],
+          heRi: ZHI_LIUHE[lz] === zhis[2],
+          chongYue: ZHI_CHONG[lz] === zhis[1],
+        };
+      });
     }
     dayunList.push(item);
   }
@@ -177,6 +218,27 @@ export function buildChart(opt) {
   pillars.forEach((p, i) => { p.shensha = shensha.perPillar[i]; });
   const geju = detectGeJu(dayGan, gans, zhis, strength);
   const yongshen = yongshenAll({ dayGan, pillars, wuxing, strength });
+
+  // 命宫 / 胎元
+  const mGong = mingGong(lunarObj, gans[0], zhis[1], zhis[3]);
+  const tYuan = taiYuan(gz[1]);
+
+  // 十神盘点：透干（年/月/时干直见）+ 藏干（四支所藏），逐处落点，供知识库提示
+  const SS_ORDER = ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'];
+  const PN = ['年', '月', '日', '时'];
+  const ssTally = SS_ORDER.map((ss) => {
+    const tou = [], cang = [];
+    gans.forEach((g, i) => {
+      if (i === 2) return; // 日主不计
+      if (shiShen(dayGan, g) === ss) tou.push(`${PN[i]}干${g}`);
+    });
+    zhis.forEach((z, i) => {
+      CANG_GAN[z].forEach((h) => {
+        if (shiShen(dayGan, h) === ss) cang.push(`${PN[i]}支${z}藏${h}`);
+      });
+    });
+    return { name: ss, tou, cang, count: tou.length + cang.length };
+  });
 
   // 农历/属相/星座等基础信息（公历文本一律从历法对象反查，农历输入时 ts 已无意义）
   const solarFinal = calendar === 'lunar' ? lunarObj.getSolar() : solar;
@@ -192,6 +254,9 @@ export function buildChart(opt) {
     pillars, dayGan, dayWuxing: GAN_WUXING[dayGan],
     wuxing, strength,
     shensha, geju, yongshen,
+    mGong: { gz: mGong, naYin: NAYIN[mGong] || '', shiShen: shiShen(dayGan, mGong[0]) },
+    tYuan: { gz: tYuan, naYin: NAYIN[tYuan] || '', shiShen: shiShen(dayGan, tYuan[0]) },
+    ssTally,
     dayun: {
       startYear: yun.getStartYear(), startMonth: yun.getStartMonth(), startDay: yun.getStartDay(),
       list: dayunList,
