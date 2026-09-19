@@ -124,5 +124,10 @@ export function yongshenAll(chart) {
   const bingyao = bingYaoAnalysis(dayGan, strength, fuyi);
   const tiaohou = tiaohouOf(dayGan, zhis[1]);
   const tonggen = tongGenScore(dayGan, gans, zhis, wuxing);
-  return { fuyi, bingyao, tiaohou, tonggen };
+  // 从势判定与提示专用喜用：从格不劳印比强扶，提示卡改推最旺两行（顺其旺势），
+  // 避免与格局层「从势之象」结论互相打架
+  const congGe = strength.pct <= 22;
+  const wangOrder = Object.entries(wuxing.scores).sort((a, b) => b[1] - a[1]).map((e) => e[0]);
+  const tishiYong = congGe ? wangOrder.slice(0, 2) : fuyi.yong.slice(0, 2);
+  return { fuyi, bingyao, tiaohou, tonggen, congGe, tishiYong };
 }
