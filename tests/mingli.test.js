@@ -333,3 +333,46 @@ describe('M4b · 复核回归（全量审查抓出项）', () => {
 });
 import { NAYIN as _NAYIN } from '../src/mingli/core/data.js';
 function awaitImport() { return { NAYIN: _NAYIN }; }
+
+describe('M5 · 干支关系汇总', () => {
+  it('参考盘（戊辰辛酉癸巳甲寅）五条全中：戊癸合化火/辰酉六合化金/酉巳半合金局/巳寅相害/巳寅刑无恩之刑', async () => {
+    const { ganZhiRelations } = await import('../src/mingli/core/relations.js');
+    const r = ganZhiRelations(['戊', '辛', '癸', '甲'], ['辰', '酉', '巳', '寅']);
+    const texts = r.map((x) => x.text);
+    expect(texts).toContain('戊癸合化火');
+    expect(texts).toContain('辰酉六合化金');
+    expect(texts).toContain('酉巳半合金局');
+    expect(texts).toContain('巳寅相害');
+    expect(texts).toContain('巳寅刑（无恩之刑）');
+  });
+  it('无旺支不算半合（申+辰不出），自刑辰辰两见才出', async () => {
+    const { ganZhiRelations } = await import('../src/mingli/core/relations.js');
+    const r = ganZhiRelations(['甲', '甲', '甲', '甲'], ['申', '辰', '午', '午']);
+    expect(r.map((x) => x.text)).toEqual(['午午自刑']);
+  });
+  it('三合整局申子辰 + 自刑辰可并存', async () => {
+    const { ganZhiRelations } = await import('../src/mingli/core/relations.js');
+    const r = ganZhiRelations(['甲', '甲', '甲', '甲'], ['申', '子', '辰', '辰']);
+    expect(r.map((x) => x.text)).toContain('申子辰三合水局');
+    expect(r.map((x) => x.text)).toContain('辰辰自刑');
+  });
+  it('1988 盘（戊辰庚申己酉辛未）仅辰酉六合化金', async () => {
+    const { ganZhiRelations } = await import('../src/mingli/core/relations.js');
+    const r = ganZhiRelations(['戊', '庚', '己', '辛'], ['辰', '申', '酉', '未']);
+    expect(r.map((x) => x.text)).toEqual(['辰酉六合化金']);
+  });
+});
+
+describe('M5b · 提示卡从势修正', () => {
+  it('从势盘(1986-7-7)：tishiYong 改推最旺两行（火…），不再给印比', () => {
+    const c = buildChart({ year: 1986, month: 7, day: 7, hour: 12, minute: 0, gender: 1 });
+    expect(c.yongshen.congGe).toBe(true);
+    expect(c.yongshen.tishiYong[0]).toBe('火');
+    expect(c.yongshen.tishiYong).not.toContain(c.strength.yinWuxing === '火' ? 'x' : c.strength.yinWuxing);
+  });
+  it('正常盘(1988)：tishiYong 仍为扶抑喜用前二', () => {
+    const c = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 0, gender: 1 });
+    expect(c.yongshen.congGe).toBe(false);
+    expect(c.yongshen.tishiYong).toEqual(['火', '土']);
+  });
+});
