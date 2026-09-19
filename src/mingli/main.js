@@ -537,7 +537,7 @@ function render() {
   app.innerHTML = `
   <header class="topbar">
     <h1>命 理</h1><span class="sub">四柱排盘</span>
-    <a class="back" href="index.html">← 门户</a>
+    <a class="back" href="index.html">← 返回</a>
   </header>
   <main class="wrap">
     ${renderCompose()}
