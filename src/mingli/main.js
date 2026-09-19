@@ -73,7 +73,7 @@ const state = {
 const WX_HINT = {
   '木': { fang: '东', se: '青绿', ji: '春', ye: '文教、出版、木业、园艺、纺织' },
   '火': { fang: '南', se: '赤红', ji: '夏', ye: '能源、传媒、演艺、餐饮、光电' },
-  '土': { fang: '中部/西南', se: '黄棕', ji: '四季之末', ye: '地产、农业、建筑、仓储、中介' },
+  '土': { fang: '中央', se: '黄棕', ji: '四季之末', ye: '地产、农业、建筑、仓储、中介' },
   '金': { fang: '西', se: '白金银', ji: '秋', ye: '金融、五金、机械、司法、精密制造' },
   '水': { fang: '北', se: '黑蓝', ji: '冬', ye: '航运、外贸、信息、流动、咨询' },
 };
@@ -177,6 +177,26 @@ function composeForm() {
       <button class="btn-go" id="btnGo">${state.mode === 'pan' ? '排 盘' : '合 盘'}</button>
       <span class="privacy">历法与排盘全部在本机完成</span>
     </div>`;
+}
+
+/* ---------- 干支关系汇总（点徽章看讲法） ---------- */
+const REL_DESC = {
+  '干合': '天干五合，两干相合化出化神。合者亲也——此二柱所主之事互相牵系，逢岁运引动则应。日主参与者为「合身」，情缘牵绊尤深。「合而化」严格说须月令辅成，此处按通行直标化神。',
+  '六合': '地支六合，两支暗合化出化神，主此二柱宫位和睦相济、事有牵连。',
+  '三合': '三支会局，化神成党，其力专一而强——整局之力最大。',
+  '半合': '三合局得其半（含旺支），化神之气已聚，力量弱于整局，逢第三支会齐则成整局。',
+  '六冲': '两支对冲，主动荡、变迁、聚散；逢六合或三合可解冲。',
+  '相刑': '相刑主纠缠刑伤：无恩之刑主恩中生怨、恃势之刑主倚势相害、无礼之刑主尊卑失序——刑非必凶，多应人事纠葛。',
+  '相害': '六害之地，暗中损耗、彼此妨碍，宜坦诚相待。',
+  '自刑': '同支自见为自刑——自寻烦恼、内耗拉扯，宜疏解不自苦。',
+};
+function renderRelations(chart) {
+  if (!chart.relations || !chart.relations.length) return '';
+  return `
+  <div class="rel-line">
+    <span class="rel-cap">干支关系</span>
+    ${chart.relations.map((r, i) => `<button class="rel-badge rel-${r.luck}" data-rel="${i}">${esc(r.text)}</button>`).join('')}
+  </div>`;
 }
 
 /* ---------- 四柱立轴 ---------- */
@@ -355,18 +375,20 @@ function renderSsTally(chart) {
   </section>`;
 }
 
-/* ---------- 提示（喜用五行 → 方位颜色行业） ---------- */
+/* ---------- 提示（喜用五行 → 方位颜色行业；从势盘改推旺势） ---------- */
 function renderTishi(chart) {
-  const yong = chart.yongshen.fuyi.yong.slice(0, 2);
+  const ys = chart.yongshen;
+  const yong = ys.tishiYong || ys.fuyi.yong.slice(0, 2);
+  const cong = ys.congGe;
   return `
   <section class="detail-sec tishi-sec">
-    <div class="detail-head"><h2>提示</h2><span class="detail-sub">喜用五行的生活参照（点卡看讲法）</span></div>
+    <div class="detail-head"><h2>提示</h2><span class="detail-sub">${cong ? '从势之局，喜顺旺势（点卡看讲法）' : '喜用五行的生活参照（点卡看讲法）'}</span></div>
     <div class="detail-grid">
       ${yong.map((w, i) => {
     const h = WX_HINT[w];
     return `
       <div class="d-card" data-tishi="${w}">
-        <div class="d-cap">${i === 0 ? '首选喜用' : '次选'} · ${w}</div>
+        <div class="d-cap">${cong ? (i === 0 ? '从势顺旺' : '次旺') : (i === 0 ? '首选喜用' : '次选')} · ${w}</div>
         <div class="d-main">${h.fang}方 · ${h.se}</div>
         <div class="d-note">利${h.ji}；行业缘：${h.ye}。</div>
       </div>`;
@@ -430,8 +452,9 @@ function drawerHtmlFor(target) {
   const ts = target.dataset.tishi;
   if (ts && WX_HINT[ts]) {
     const h = WX_HINT[ts];
-    return [`${ts} · 喜用讲法`, '生活参照',
-      `本盘喜用五行取「${ts}」，古法以方位、颜色、时令作参照：利<b>${h.fang}方</b>（居所、发展方位可参照）、喜<b>${h.se}</b>系、<b>${h.ji}</b>当令；行业缘起${h.ye}。<br><br>此为「取象比类」的传统参照法，当作文化参考即可，现实决策不必拘泥。`];
+    const cong = chart.yongshen.congGe;
+    return [`${ts} · ${cong ? '从势顺旺' : '喜用'}讲法`, '生活参照',
+      `${cong ? '本盘日主同党不足四分之三成，属<b>从势之局</b>——不以扶弱为用，顺其旺势者吉，故取旺势五行「' + ts + '」作参照。' : '本盘喜用五行取「' + ts + '」，古法以方位、颜色、时令作参照：'}利<b>${h.fang}方</b>（居所、发展方位可参照）、喜<b>${h.se}</b>系、<b>${h.ji}</b>当令；行业缘起${h.ye}。<br><br>此为「取象比类」的传统参照法，当作文化参考即可，现实决策不必拘泥。`];
   }
   if (dt === 'geju') return ['格局 · 讲法', chart.geju.main,
     `定格以<b>月令</b>为准：月支藏干透出到年/月/时干者，按其十神定名（如正官格、七杀格）；本气优先。比劫当月则另论：比肩临官为<b>建禄格</b>，阳日主劫财为<b>阳刃格</b>（五阴干无阳刃），其余为月劫格。<br><br>本盘：${esc(chart.geju.via)}。${chart.geju.special.length ? chart.geju.special.map(esc).join('<br>') : ''}${sourceBlock('geju')}`];
@@ -473,6 +496,13 @@ function drawerHtmlFor(target) {
   }
   // 命宫 / 胎元
   const mg = target.dataset.mg, ty = target.dataset.ty;
+  // 干支关系徽章
+  const relI = target.dataset.rel;
+  if (relI !== undefined && chart.relations?.[relI]) {
+    const r = chart.relations[relI];
+    return [r.text + ' · 讲法', `${r.type} · ${r.luck} · 落${r.pillars.join('、')}柱`,
+      `<b>${r.text}</b>（落于${r.pillars.join('、')}柱之间）。${REL_DESC[r.type] || ''}`];
+  }
   if (mg) return ['命宫 · ' + mg, '神栖之宫',
     `命宫 <b>${mg}</b>（纳音${chart.mGong.naYin}，宫干对日主为${chart.mGong.shiShen}）。古法以「神栖之宫」论：性向、心之所安与此宫气息相关，命宫得贵人禄马者心定神闲。算法：月数按节气（过中气进一月），十四减月减时落宫，五虎遁起宫干。${sourceBlock('minggong')}`];
   if (ty) return ['胎元 · ' + ty, '受胎之月',
@@ -522,6 +552,7 @@ function render() {
         <span data-ty="${chart.tYuan.gz}" style="cursor:pointer">胎元 <b>${chart.tYuan.gz}</b></span>
         ${state.tstNote ? `<span>☀ ${esc(state.tstNote)}</span>` : ''}
       </div>
+      ${renderRelations(chart)}
       ${renderPillars(chart)}
       ${state.heResult ? renderHePan(state.heResult) : ''}
       ${renderWxRing(chart)}
@@ -657,7 +688,7 @@ function go() {
 render();
 // 抽屉点选委托只挂一次（render 会重写 app 内部，委托在 app 上不受影响）
 app.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-gz],[data-gan],[data-zhi],[data-ss],[data-ssname],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong],[data-si],[data-detail],[data-he],[data-tishi],[data-mg],[data-ty]');
+  const t = e.target.closest('[data-gz],[data-gan],[data-zhi],[data-ss],[data-ssname],[data-xy],[data-ny],[data-wx],[data-hide],[data-dy],[data-st],[data-kong],[data-si],[data-detail],[data-he],[data-tishi],[data-mg],[data-ty],[data-rel]');
   if (!t) return;
   const hit = drawerHtmlFor(t);
   if (hit) {
