@@ -17,6 +17,7 @@ import {
 import { scanShensha } from './shensha.js';
 import { detectGeJu } from './geju.js';
 import { yongshenAll } from './yongshen.js';
+import { ganZhiRelations } from './relations.js';
 
 const { Solar, Lunar } = lunar;
 
@@ -257,6 +258,7 @@ export function buildChart(opt) {
     mGong: { gz: mGong, naYin: NAYIN[mGong] || '', shiShen: shiShen(dayGan, mGong[0]) },
     tYuan: { gz: tYuan, naYin: NAYIN[tYuan] || '', shiShen: shiShen(dayGan, tYuan[0]) },
     ssTally,
+    relations: ganZhiRelations(gans, zhis),
     dayun: {
       startYear: yun.getStartYear(), startMonth: yun.getStartMonth(), startDay: yun.getStartDay(),
       list: dayunList,
