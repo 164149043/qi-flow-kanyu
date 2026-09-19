@@ -1324,9 +1324,7 @@ const headR = ctrlPanel.querySelector('.ctrl-head-r');
 const pager = document.createElement('div');
 pager.className = 'pager';
 pager.innerHTML =
-  `<a href="index.html" title="星空门户 · 总入口">主页</a>` +
-  `<a href="qiliu.html" class="active" title="3D 炁流场模拟（当前页）">炁流 3D</a>` +
-  `<a href="kanyu.html" title="堪舆盘：八宅 / 玄空 / 廿四山 / 年飞星 / 动态九宫 · 户型定盘">堪舆</a>`;
+  `<a href="index.html" title="返回门户">返回</a>`;
 headR.appendChild(pager);
 headR.appendChild(fpsEl);
 
@@ -1335,7 +1333,7 @@ const mToolbar = document.createElement('div');
 mToolbar.className = 'm-toolbar';
 mToolbar.innerHTML =
   `<button class="m-btn" id="mCtrlBtn" title="操作台"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>` +
-  `<div class="pager"><a href="index.html">主页</a><a href="qiliu.html" class="active">炁流 3D</a><a href="kanyu.html">堪舆</a></div>` +
+  `<div class="pager"><a href="index.html">返回</a></div>` +
   `<button class="m-btn" id="mTopBtn" title="俯视/复位视角"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/><circle cx="12" cy="12" r="1.6"/></svg></button>` +
   `<button class="m-btn" id="mDpBtn" title="数据面板"><svg class="icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></button>`;
 app.appendChild(mToolbar);
