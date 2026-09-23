@@ -1,6 +1,7 @@
 // PlanEditor.js —— 户型编辑浮层（两种模式）
 // open(image)：上传校准流程 ①旋转正北朝上 ②自动识别(Sauvola) ③调灵敏度/去噪/膨胀 ④编辑 ⑤确定
-// openDraw(solid, glass)：独立手绘 ①选材质(墙/窗) ②直线(Shift=正交)/矩形房间/笔刷/擦除 ③撤销/清空 ④确定（2026-09-19）
+// openDraw(solid, glass, door)：独立手绘 ①选材质(墙/窗/门) ②直线(Shift=正交)/矩形房间/笔刷/擦除 ③撤销/清空 ④确定（2026-09-19；09-23 增门）
+// 门=格标记不写 solid（墙上画门保留墙格，确定后由 main.js 转结构件门凿洞洪泛判墙厚）；窗=solid+glass 双写
 // 性能：preprocess+binarize 只跑一次缓存 bin，滑块只触发轻量 binToGridSolid；格线参照层离屏缓存
 
 import { preprocessImage, binarize, binToGridSolid } from '../vision/LineDetector.js';
@@ -14,7 +15,7 @@ export class PlanEditor {
     this.cw = gridW * this.cellPx; this.ch = gridH * this.cellPx;
     this.rotation = 0; this.scale = 1;
     this.tool = 'brush'; this.mat = 'wall'; this.brushSize = 2;
-    this.solid = null; this.glass = null; this.image = null; this.locked = false;
+    this.solid = null; this.glass = null; this.door = null; this.image = null; this.locked = false;
     this.gray = null; this.imgW = 0; this.imgH = 0; this.bin = null;
     this.recParams = { method: 'sauvola', window: 15, wallRatio: 0.10, dilate: 1, minSize: 6 };
     this.history = [];                // 撤销栈（笔刷=每笔触一快照；直线/矩形=落墨前一快照）
@@ -27,19 +28,21 @@ export class PlanEditor {
   open(image, onConfirm) {
     this.mode = 'calib';
     this.image = image; this.onConfirm = onConfirm;
+    this.door = new Uint8Array(this.SW * (this.gridH + 2));   // 门场（识别流程里手补门也走它）
     this._buildDOM(); this._render();
   }
 
-  // 独立手绘入口：内部持有副本，取消/未确定不影响调用方数组
-  openDraw(solid, glass, onConfirm) {
+  // 独立手绘入口：内部持有副本，取消/未确定不影响调用方数组（door=已放门的投影场，可改可擦）
+  openDraw(solid, glass, door, onConfirm) {
     this.mode = 'draw';
     this.onConfirm = onConfirm;
     this.solid = new Uint8Array(solid);
     this.glass = new Uint8Array(glass);
+    this.door = new Uint8Array(door);
     this.tool = 'line';               // 画墙主力=直线拖画
     this._buildDOM();
     this._setStage('edit');
-    this.hint.innerHTML = '🧱/🪟选材质 → <b style="color:#f88">╱直线</b>拖画(Shift=横平竖直) · ▭矩形画房间 · ✏️笔刷修细节 → ✅确定。<b>门/窗开合件放 3D 场景</b>';
+    this.hint.innerHTML = '🧱墙/🪟窗/🚪门选材质 → <b style="color:#f88">╱直线</b>拖画(Shift=横平竖直) · ▭矩形画房间 · ✏️笔刷修细节 → ✅确定。门窗<b style="color:#fc6">沿墙画</b>（确定后成可点选开关的门窗件）';
     this._render();
   }
 
@@ -81,6 +84,7 @@ export class PlanEditor {
         <div class="pe-row" id="peEditRow" style="display:none">
           <button class="pe-btn active" id="peWall">🧱 墙</button>
           <button class="pe-btn" id="peWin">🪟 窗</button>
+          <button class="pe-btn" id="peDoor">🚪 门</button>
           <span class="pe-sep"></span>
           <button class="pe-btn" id="peLine">╱ 直线</button>
           <button class="pe-btn" id="peBrush">✏️ 笔刷</button>
@@ -123,9 +127,10 @@ export class PlanEditor {
       this._rebin();
     };
     $('#peReset').onclick = () => this._rebuild();   // 撤销画笔编辑，回到当前参数识别态
-    // 材质（墙/窗）与工具（直线/笔刷/矩形/擦除）两组独立：上传流程的"画墙笔刷"= 墙+笔刷
+    // 材质（墙/窗/门）与工具（直线/笔刷/矩形/擦除）两组独立：上传流程的"画墙笔刷"= 墙+笔刷
     $('#peWall').onclick = () => this._setMat('wall');
     $('#peWin').onclick = () => this._setMat('win');
+    $('#peDoor').onclick = () => this._setMat('door');
     $('#peLine').onclick = () => this._setTool('line');
     $('#peBrush').onclick = () => this._setTool('brush');
     $('#peRect').onclick = () => this._setTool('rect');
@@ -140,7 +145,7 @@ export class PlanEditor {
       const btn = e.currentTarget;
       if (clearArm) {
         clearTimeout(clearArm); clearArm = null; btn.textContent = '🗑 清空';
-        if (this.solid) { this.solid.fill(0); if (this.glass) this.glass.fill(0); this._render(); }
+        if (this.solid) { this.solid.fill(0); if (this.glass) this.glass.fill(0); if (this.door) this.door.fill(0); this._render(); }
         return;
       }
       btn.textContent = '⚠ 再点确认清空';
@@ -196,8 +201,9 @@ export class PlanEditor {
 
   _setMat(m) {
     this.mat = m;
-    this.overlay?.querySelectorAll('#peWall,#peWin').forEach(b => b.classList.remove('active'));
-    (m === 'wall' ? '#peWall' : '#peWin') && this.overlay?.querySelector(m === 'wall' ? '#peWall' : '#peWin')?.classList.add('active');
+    const sel = { wall: '#peWall', win: '#peWin', door: '#peDoor' };
+    this.overlay?.querySelectorAll('#peWall,#peWin,#peDoor').forEach(b => b.classList.remove('active'));
+    this.overlay?.querySelector(sel[m])?.classList.add('active');
   }
 
   _setTool(t) {
@@ -207,34 +213,38 @@ export class PlanEditor {
     this.overlay?.querySelector(m[t])?.classList.add('active');
   }
 
-  // 粗细=笔刷圆章直径换算米数（cellMeters 米/格）
-  _updThk() { if (this.thkLabel) this.thkLabel.textContent = `≈${(this.brushSize * 2 * this.cellMeters).toFixed(1)}m`; }
+  // 粗细=方章边长(2r+1格)换算米数（cellMeters 米/格）
+  _updThk() { if (this.thkLabel) this.thkLabel.textContent = `≈${((this.brushSize * 2 + 1) * this.cellMeters).toFixed(1)}m`; }
 
-  // 单格落墨：erase 清两场；win=透光墙(实心+玻璃)；wall=实心清玻璃
+  // 单格落墨：erase 清三场；win=透光墙(实心+玻璃)；wall=实心清玻璃/门；door=格标记不动 solid(嵌墙语义，凿洞归结构件)
   _stamp(i, j) {
     if (i < 0 || i >= this.gridW || j < 0 || j >= this.gridH) return;
     const c = (i + 1) + this.SW * (j + 1);
-    if (this.tool === 'erase') { this.solid[c] = 0; if (this.glass) this.glass[c] = 0; }
-    else if (this.mat === 'win') { this.solid[c] = 1; if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2)); this.glass[c] = 1; }
-    else { this.solid[c] = 1; if (this.glass) this.glass[c] = 0; }
+    if (this.tool === 'erase') { this.solid[c] = 0; if (this.glass) this.glass[c] = 0; if (this.door) this.door[c] = 0; }
+    else if (this.mat === 'win') { this.solid[c] = 1; if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2)); this.glass[c] = 1; if (this.door) this.door[c] = 0; }
+    else if (this.mat === 'door') { if (!this.door) this.door = new Uint8Array(this.SW * (this.gridH + 2)); this.door[c] = 1; if (this.glass) this.glass[c] = 0; }
+    else { this.solid[c] = 1; if (this.glass) this.glass[c] = 0; if (this.door) this.door[c] = 0; }
   }
 
+  // 笔刷方章：(2r+1)² 满格。原圆章 di²+dj²>r² 挖角——粗细1时退化为十字点阵、线末端缺角（2026-09-23 用户反馈）
+  // 墙要连续不漏角（角缝漏风），方章也让标称厚度(2r+1格)与实际一致
   _paint([gi, gj]) {
     if (gi < 0 || gi >= this.gridW || gj < 0 || gj >= this.gridH) return;
-    const r = this.brushSize, r2 = r * r;
-    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
-      if (di * di + dj * dj > r2) continue;
-      this._stamp(gi + di, gj + dj);
-    }
+    const r = this.brushSize;
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) this._stamp(gi + di, gj + dj);
     this._render();
   }
 
   // 线段光栅化：半格步进防漏格，每步盖笔刷圆章（墙厚=2×粗细格）
+  // 门/窗例外：直线/矩形走单格细线——圆章会把门窗画胖成多格厚块（窗成玻璃墙带、门与墙粘连吞墙）
   _paintLine(a, b) {
     const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
+    const thin = (this.mat === 'door' || this.mat === 'win') && this.tool !== 'brush';
     for (let s = 0; s <= n; s++) {
       const t = s / n;
-      this._paint([Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t)]);
+      const p = [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t)];
+      if (thin) this._stamp(p[0], p[1]);
+      else this._paint(p);
     }
   }
 
@@ -248,7 +258,7 @@ export class PlanEditor {
   // 撤销：笔触/线/矩形 开始前快照入栈，撤销 pop 恢复
   _pushHistory() {
     if (!this.solid) return;
-    this.history.push({ solid: new Uint8Array(this.solid), glass: this.glass ? new Uint8Array(this.glass) : null });
+    this.history.push({ solid: new Uint8Array(this.solid), glass: this.glass ? new Uint8Array(this.glass) : null, door: this.door ? new Uint8Array(this.door) : null });
     if (this.history.length > 30) this.history.shift();   // 限 30 步
   }
   _undo() {
@@ -256,6 +266,7 @@ export class PlanEditor {
     const s = this.history.pop();
     this.solid = s.solid;
     if (s.glass) this.glass = s.glass;
+    if (s.door) this.door = s.door;
     this._render();
   }
 
@@ -269,7 +280,7 @@ export class PlanEditor {
       this.rotInput.disabled = this.scaleInput.disabled = false;
       $('#peRecRow').style.display = 'none';
       $('#peEditRow').style.display = 'none';
-      this.solid = null; this.glass = null; this.bin = null; this.gray = null;   // 清识别态，重新来
+      this.solid = null; this.glass = null; this.door = null; this.bin = null; this.gray = null;   // 清识别态，重新来
       this.history.length = 0;
       this.hint.innerHTML = '①旋转让<b style="color:#6cf">正北朝上</b> ②🔍自动识别';
       this._render();
@@ -289,7 +300,7 @@ export class PlanEditor {
     if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2));  // 窗户场（识别后用户可画窗）
     this._rebin();
     this._setStage('edit');
-    this.hint.innerHTML = '✅ 已识别(<b style="color:#f88">红=墙</b>)。调灵敏度/去噪/膨胀 → 直线/矩形补墙 → 确定。<b>上一步</b>=回校准';
+    this.hint.innerHTML = '✅ 已识别(<b style="color:#f88">红=墙</b> · 🪟蓝=窗 · 🚪琥珀=门)。调灵敏度/去噪/膨胀 → 选材质直线/矩形补画 → 确定。<b>上一步</b>=回校准';
   }
 
   // 重跑二值化（方法/窗口变时，较重）
@@ -349,8 +360,9 @@ export class PlanEditor {
     if (this.solid) {
       for (let gj = 0; gj < this.gridH; gj++) for (let gi = 0; gi < this.gridW; gi++) {
         const c = (gi + 1) + this.SW * (gj + 1);
-        if (this.glass && this.glass[c]) ctx.fillStyle = 'rgba(80,170,255,0.6)';        // 窗户=蓝
-        else if (this.solid[c]) ctx.fillStyle = 'rgba(255,70,70,0.55)';                  // 墙=红
+        if (this.door && this.door[c]) ctx.fillStyle = 'rgba(240,190,80,0.78)';        // 门=琥珀（墙上画门时盖红墙显示）
+        else if (this.glass && this.glass[c]) ctx.fillStyle = 'rgba(80,170,255,0.6)';   // 窗户=蓝
+        else if (this.solid[c]) ctx.fillStyle = 'rgba(255,70,70,0.55)';                 // 墙=红
         else continue;
         ctx.fillRect(gi * this.cellPx, gj * this.cellPx, this.cellPx, this.cellPx);
       }
@@ -361,8 +373,10 @@ export class PlanEditor {
   _renderGhost(ctx) {
     const { a, b } = this._drag;
     ctx.strokeStyle = this.tool === 'erase' ? 'rgba(190,190,200,.55)'
-      : this.mat === 'win' ? 'rgba(80,170,255,.55)' : 'rgba(255,70,70,.55)';
-    ctx.lineWidth = this.brushSize * 2 * this.cellPx * .8;
+      : this.mat === 'win' ? 'rgba(80,170,255,.55)'
+      : this.mat === 'door' ? 'rgba(240,190,80,.55)' : 'rgba(255,70,70,.55)';
+    const thin = (this.mat === 'door' || this.mat === 'win') && this.tool !== 'brush';
+    ctx.lineWidth = thin ? this.cellPx : (this.brushSize * 2 + 1) * this.cellPx * .85;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const px = (i, j) => [(i + .5) * this.cellPx, (j + .5) * this.cellPx];
     if (this.tool === 'line') {
@@ -378,7 +392,8 @@ export class PlanEditor {
   _confirm() {
     if (!this.solid) this.solid = new Uint8Array(this.SW * (this.gridH + 2));
     if (!this.glass) this.glass = new Uint8Array(this.SW * (this.gridH + 2));
-    const result = { solid: this.solid, glass: this.glass, north: this.rotation };
+    if (!this.door) this.door = new Uint8Array(this.SW * (this.gridH + 2));
+    const result = { solid: this.solid, glass: this.glass, door: this.door, north: this.rotation };
     this._close();
     this.onConfirm?.(result);
   }
