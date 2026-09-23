@@ -5,7 +5,7 @@ import { inject } from '@vercel/analytics';
 import * as THREE from 'three';
 import { HeatmapRenderer } from './core/HeatmapRenderer.js';
 import { SceneManager } from './scene/SceneManager.js';
-import { buildWalls } from './scene/WallBuilder.js';
+import { buildWalls, buildGlassPanels } from './scene/WallBuilder.js';
 import { buildDefaultPlan } from './scene/DefaultPlan.js';
 import LAYOUT_JSON from './scene/default-layout.json';   // 自定义默认布置（null=内置四合院；布置 JSON 直接覆盖此文件即换默认）
 import { PlanEditor } from './ui/PlanEditor.js';
@@ -822,9 +822,14 @@ drawBtn.onclick = () => {
     b.onclick = () => { pick.remove(); fn(); };
     panel.appendChild(b);
   };
-  const start = (s, g) => new PlanEditor(W, H, CELL).openDraw(s, g, (r) => applyPlan(r.solid, r.glass));
-  mk('🏠 沿用当前户型（在现有墙上改）', () => start(baseSolid, baseGlass));
-  mk('🗂 空白新画（自己搭房间）', () => start(new Uint8Array(SW * (H + 2)), new Uint8Array(SW * (H + 2))));
+  const start = (s, g, d) => new PlanEditor(W, H, CELL).openDraw(s, g, d, (r) => applyPlan(r.solid, r.glass, r.door));
+  const doorsMask = () => {   // 手绘门投影回格场（3D 放置的门不进编辑器：位置/开合态不受绘制影响）
+    const d = new Uint8Array(SW * (H + 2));
+    for (const dr of doors) if (dr._drawn) for (const c of lineCells(dr.i, dr.j, dr.bearing, dr.len)) d[c] = 1;
+    return d;
+  };
+  mk('🏠 沿用当前户型（在现有墙上改）', () => start(baseSolid, baseGlass, doorsMask()));
+  mk('🗂 空白新画（自己搭房间）', () => start(new Uint8Array(SW * (H + 2)), new Uint8Array(SW * (H + 2)), new Uint8Array(SW * (H + 2))));
   mk('取消', () => {});
   pick.appendChild(panel);
   pick.onclick = (e) => { if (e.target === pick) pick.remove(); };   // 点遮罩取消
@@ -1149,8 +1154,8 @@ function serializePlan() {
     baseSolid: rleEncode(baseSolid), baseGlass: rleEncode(baseGlass), wallH,
     // 结构件（贴墙凿洞语义在恢复时由 restampMasks 重放）
     screens: screens.map(({ i, j, bearing, len }) => ({ i, j, bearing, len })),
-    doors: doors.map(({ i, j, bearing, len, open }) => ({ i, j, bearing, len, open })),
-    windows: windows.map(({ i, j, bearing, len, open }) => ({ i, j, bearing, len, open })),
+    doors: doors.map(({ i, j, bearing, len, open, _drawn }) => ({ i, j, bearing, len, open, _drawn: !!_drawn })),
+    windows: windows.map(({ i, j, bearing, len, open, _drawn }) => ({ i, j, bearing, len, open, _drawn: !!_drawn })),
     // 源
     qiPorts: qiPorts.map(({ i, j, bearing, amount }) => ({ i, j, bearing, amount })),
     windSrcs: windSrcs.map(({ i, j, bearing, strength }) => ({ i, j, bearing, strength })),
@@ -1186,8 +1191,8 @@ function loadPlan(plan) {
     if (plan.mode && plan.mode !== mode) clickModeBtn(plan.mode);
     // 结构件：add（默认参数）后覆写 bearing/len/open → rebuildFixtureVis 重建几何
     for (const s of plan.screens || []) { const f = addFixture('screen', [s.i, s.j]); f.bearing = s.bearing; f.len = s.len; setFixtureBearing(f); rebuildFixtureVis(f); }
-    for (const d of plan.doors || []) { const f = addFixture('door', [d.i, d.j]); f.bearing = d.bearing; f.len = d.len; f.open = d.open; setFixtureBearing(f); rebuildFixtureVis(f); }
-    for (const w of plan.windows || []) { const f = addFixture('window', [w.i, w.j]); f.bearing = w.bearing; f.len = w.len; f.open = w.open; setFixtureBearing(f); rebuildFixtureVis(f); }
+    for (const d of plan.doors || []) { const f = addFixture('door', [d.i, d.j]); f.bearing = d.bearing; f.len = d.len; f.open = d.open; if (d._drawn) f._drawn = true; setFixtureBearing(f); rebuildFixtureVis(f); }
+    for (const w of plan.windows || []) { const f = addFixture('window', [w.i, w.j]); f.bearing = w.bearing; f.len = w.len; f.open = w.open; if (w._drawn) f._drawn = true; setFixtureBearing(f); rebuildFixtureVis(f); }
     // 源：add 后覆写 + 箭头朝向 + sync
     for (const q of plan.qiPorts || []) { const p = addQiPort([q.i, q.j]); p.bearing = q.bearing; p.amount = q.amount; updateArrowDir(p._vis, p.bearing); syncQiPorts(); }
     for (const w of plan.windSrcs || []) { const s = addWindSrc([w.i, w.j]); s.bearing = w.bearing; s.strength = w.strength; updateArrowDir(s._vis, s.bearing); syncWindSrcs(); }
@@ -1383,14 +1388,15 @@ fileInput.accept = 'image/*';
 fileInput.style.display = 'none';
 app.appendChild(fileInput);
 
-// 应用新户型：存 base → 低墙重建（识别墙 0.85m 不挡视线）→ 结构件 mask 重放（跨上传存活）
-function applyPlan(solidNew, glassNew) {
+// 应用新户型：存 base → 手绘门转结构件重放（先于建墙：凿洞洪泛读 doors+baseSolid）→ 墙/玻璃带重建 → mask 重放
+function applyPlan(solidNew, glassNew, doorNew) {
   baseSolid = solidNew;
   if (glassNew) baseGlass = glassNew;
   wallH = 1.95;   // 与门/窗齐平（原 0.85 低墙不挡视线；看室内用俯视/拖拽视角）
+  if (doorNew) replayDrawnDoors(doorNew);        // 门场=真源：清手绘门按格重建（视觉/开合/凿洞全复用结构件体系）
+  if (glassNew) replayDrawnWindows(glassNew);    // 手绘窗→结构件窗：窗扇件视觉+点击选中+面板开关（静态玻璃带只作删除结构件后的回退显示）
   rebuildWalls();
   restampMasks();
-  for (const d of doors) rebuildFixtureVis(d);   // 门叶高度体系不随墙缩（1.95 固定），仅位置/朝向重挂
 }
 
 uploadBtn.onclick = () => fileInput.click();
@@ -1400,7 +1406,7 @@ fileInput.onchange = (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     const img = new Image();
-    img.onload = () => new PlanEditor(W, H, CELL).open(img, (r) => applyPlan(r.solid, r.glass));
+    img.onload = () => new PlanEditor(W, H, CELL).open(img, (r) => applyPlan(r.solid, r.glass, r.door));
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
@@ -1528,13 +1534,21 @@ function restampMasks(withWalls) {
   if (withWalls) wallDirty = true;
 }
 
-// 墙视觉：从 baseSolid 减去门/窗凿穿格建墙（门/窗位置恒有洞，门板/窗玻璃盖住；开关不重建墙）
+// 墙视觉：从 baseSolid 减去手绘窗格与门/窗凿穿格建墙（2026-09-23 修：此前 wallSolid 未抠手绘窗格，
+// 玻璃带被完整实心墙包住——用户看到"画窗确定后是一堵墙"）
+// 手绘窗格（baseSolid∩baseGlass）从墙体抠出 → 半透明玻璃带回退显示；结构件凿格处有窗扇件，不重复铺
 function rebuildWalls() {
   scene3d.clearWalls();
   const wallSolid = new Uint8Array(baseSolid);
+  const glassSolid = new Uint8Array(baseSolid);
+  for (let c = 0; c < wallSolid.length; c++) {
+    if (baseGlass[c]) { wallSolid[c] = 0; }       // 窗格不建实心墙（玻璃带填洞）
+    else glassSolid[c] = 0;
+  }
   for (const f of [...doors, ...windows])
-    for (const c of computeCarve(f).cells) wallSolid[c] = 0;
+    for (const c of computeCarve(f).cells) { wallSolid[c] = 0; glassSolid[c] = 0; }
   buildWalls(wallSolid, W, H, SW, scene3d.wallsGroup, { cell: CELL, wallH });
+  buildGlassPanels(glassSolid, W, H, SW, scene3d.wallsGroup, { cell: CELL, wallH });
 }
 
 // ===== 结构件 3D 视觉工厂 =====
@@ -1659,6 +1673,56 @@ function replayFixtures(list) {
     f.open = !!fx.open;
     rebuildFixtureVis(f);
   }
+}
+
+// 手绘门/窗场 → 连通域 → 放置列表（2026-09-23）：4-连通洪泛取域，包围盒主轴定向（横→东向/竖→南向，正方形块归横）
+function fixturesFromMask(mask) {
+  const seen = new Uint8Array(mask.length);
+  const out = [];
+  for (let j = 1; j <= H; j++) for (let i = 1; i <= W; i++) {
+    const c = i + SW * j;
+    if (!mask[c] || seen[c]) continue;
+    const cells = [[i, j]]; seen[c] = 1;                  // BFS 4-连通收集域
+    for (let k = 0; k < cells.length; k++) {
+      const [ci, cj] = cells[k];
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = ci + di, nj = cj + dj, nc = ni + SW * nj;
+        if (ni >= 1 && nj >= 1 && ni <= W && nj <= H && mask[nc] && !seen[nc]) { seen[nc] = 1; cells.push([ni, nj]); }
+      }
+    }
+    let i0 = Infinity, i1 = -Infinity, j0 = Infinity, j1 = -Infinity;
+    for (const [ci, cj] of cells) { i0 = Math.min(i0, ci); i1 = Math.max(i1, ci); j0 = Math.min(j0, cj); j1 = Math.max(j1, cj); }
+    const w = i1 - i0 + 1, h = j1 - j0 + 1;
+    // lineCells 口径：bearing 90°=向 +i（东）、180°=向 +j（南）；起点取中线的西/北端
+    if (w >= h) out.push({ i: i0, j: Math.round((j0 + j1) / 2), bearing: 90, len: w });
+    else out.push({ i: Math.round((i0 + i1) / 2), j: j0, bearing: 180, len: h });
+  }
+  return out;
+}
+
+// 只清手绘来源（_drawn）的结构件：3D 场景放置的门/窗不受编辑器影响（位置/开合态保留）
+function clearDrawnFixtures(type) {
+  const { grp, arr } = FIX[type];
+  for (let k = arr.length - 1; k >= 0; k--) {
+    const f = arr[k];
+    if (!f._drawn) continue;
+    if (selectedSource === f) deselectSource();
+    grp.remove(f._vis);
+    f._vis.traverse?.(x => { x.geometry?.dispose(); x.material?.dispose(); });
+    arr.splice(k, 1);
+  }
+}
+const stampDrawn = (f, d) => { f.bearing = d.bearing; f.len = d.len; f._drawn = true; setFixtureBearing(f); rebuildFixtureVis(f); };
+
+// 手绘门重放：清手绘门 → 门场连通域重建（addFixture 全副作用：视觉+凿洞+开合；粗笔刷歪线会被主轴取直）
+function replayDrawnDoors(doorMask) {
+  clearDrawnFixtures('door');
+  for (const d of fixturesFromMask(doorMask)) stampDrawn(addFixture('door', [d.i, d.j]), d);
+}
+// 手绘窗重放：窗场连通域重建为结构件窗（2026-09-23：此前只是静态玻璃带——不能选中也不能开关）
+function replayDrawnWindows(winMask) {
+  clearDrawnFixtures('window');
+  for (const w of fixturesFromMask(winMask)) stampDrawn(addFixture('window', [w.i, w.j]), w);
 }
 // 源重放（默认布局 JSON 加载用）：炁口/风口/光源清空重建（位置/朝向/强度）
 function replaySources(d) {
