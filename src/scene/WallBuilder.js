@@ -100,6 +100,54 @@ function _pointInPoly(pt, poly) {
   return inside;
 }
 
+// 手绘窗玻璃带（2026-09-23 窗显示修复）：glass mask → 上下留缝的半透明玻璃挤出 + 蓝棱线
+// 调用方先减去结构件凿格（那里有窗扇件视觉，不重复铺玻璃）；材质口径对齐 makeWindowVis 窗玻璃
+export function buildGlassPanels(glass, W, H, SW, group, opts = {}) {
+  const cell = opts.cell ?? 0.20;
+  const wallH = opts.wallH ?? 1.95;
+  const gap = 0.12;                          // 上下留缝，显出窗框层次（非落地玻璃幕）
+  const contours = _extractContours(glass, W, H, SW);
+  if (!contours.length) return null;
+  const FW = W * cell, FD = H * cell;
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x9fc8e8, transparent: true, opacity: 0.4,
+    roughness: 0.15, metalness: 0.1, depthWrite: false,
+  });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x7fb8dc, transparent: true, opacity: 0.8, depthWrite: false });
+  let first = null;
+  for (const { outer, holes } of contours) {
+    if (outer.length < 3) continue;
+    const shape = new THREE.Shape();
+    shape.moveTo(outer[0].x, outer[0].y);
+    for (let k = 1; k < outer.length; k++) shape.lineTo(outer[k].x, outer[k].y);
+    shape.closePath();
+    for (const h of holes) {
+      if (h.length < 3) continue;
+      const path = new THREE.Path();
+      path.moveTo(h[0].x, h[0].y);
+      for (let k = 1; k < h.length; k++) path.lineTo(h[k].x, h[k].y);
+      path.closePath();
+      shape.holes.push(path);
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: wallH - gap * 2, bevelEnabled: false, steps: 1 });
+    geo.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.scale.set(cell, 1, -cell);
+    mesh.position.set(-FW / 2, gap, -FD / 2);   // 抬起 gap：玻璃嵌在墙高带中段
+    mesh.renderOrder = 2;                        // 排在不透明墙(0)之后画，混合正确
+    mesh.frustumCulled = false;
+    group.add(mesh);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1), edgeMat);
+    edges.scale.set(cell, 1, -cell);
+    edges.position.set(-FW / 2, gap, -FD / 2);
+    edges.renderOrder = 2.5;
+    edges.frustumCulled = false;
+    group.add(edges);
+    if (!first) first = mesh;
+  }
+  return first;
+}
+
 // solid: Uint8Array(SW*SH)；group: wallsGroup；opts: cell/wallH/color/opacity/edgeColor/edgeOpacity
 export function buildWalls(solid, W, H, SW, group, opts = {}) {
   const cell = opts.cell ?? 0.20;
