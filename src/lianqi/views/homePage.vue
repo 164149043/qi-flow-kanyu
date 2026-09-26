@@ -1409,7 +1409,7 @@
             errBox.value = true
             gameNotifys({
               title: '脚本导入失败',
-              message: '复制错误信息到QQ群内'
+              message: '请查看下方错误信息'
             })
           }
         }
@@ -1460,7 +1460,7 @@
 
   // 重置
   const reset = () => {
-    storyText.value = '属性出错, 请添加QQ群:920930589, 上传"存档"并联系作者解决'
+    storyText.value = '属性出错, 请检查存档数据是否损坏, 可尝试导入之前的存档备份'
     ElMessageBox.confirm('你是否要导出存档?', '存档导出提示', {
       center: true,
       confirmButtonText: '确定'
@@ -1643,8 +1643,8 @@
         err.value = err
         errBox.value = true
         gameNotifys({
-          title: '脚本导入失败',
-          message: '复制错误信息到QQ群内'
+          title: '存档导入失败',
+          message: '请查看下方错误信息'
         })
       }
     }
