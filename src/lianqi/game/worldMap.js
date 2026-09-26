@@ -136,8 +136,8 @@ export class WorldMap {
       this.npcSprites.push({ sprite, index: npc.position, baseY, phase: i })
     })
 
-    // 玩家精灵 (zimage 真素材缺失时回退程序化小人)
-    this.player = new Sprite(this.heroTex?.zimage?.[this.facing] || this.textures.player[0])
+    // 玩家精灵 (jianxiu 剑修真素材缺失时回退程序化小人)
+    this.player = new Sprite(this.heroTex?.jianxiu?.[this.facing] || this.textures.player[0])
     this.player.anchor.set(0.5, 1)
     this.player.scale.set(HERO_H / this.player.height)
     this.player.position.set(0, 0)
@@ -227,13 +227,20 @@ export class WorldMap {
     const size = this.gridSize
 
     // ---- 转场 ----
+    // 淡入完成执行回调后必须进入淡出并清空 flashing,
+    // 否则 tick 永远停在转场分支 return, 精灵/相机/NPC 全部冻结 (遇怪一次后人物就不再移动)
     if (this.flashing) {
       this.flashing.t += dt
-      const alpha = Math.min(this.flashing.t / 0.25, 1)
-      this.mask.alpha = alpha
-      if (alpha >= 1 && !this.flashing.done) {
-        this.flashing.done = true
-        this.flashing.callback && this.flashing.callback()
+      if (!this.flashing.done) {
+        const alpha = Math.min(this.flashing.t / 0.25, 1)
+        this.mask.alpha = alpha
+        if (alpha >= 1) {
+          this.flashing.done = true
+          this.flashing.callback && this.flashing.callback()
+        }
+      } else {
+        this.mask.alpha = Math.max(0, this.mask.alpha - dt * 2)
+        if (this.mask.alpha <= 0) this.flashing = null
       }
       return
     }
@@ -253,7 +260,7 @@ export class WorldMap {
           : dy > 0 ? 'front' : 'back'
       if (next !== this.facing) {
         this.facing = next
-        const tex = this.heroTex?.zimage?.[next]
+        const tex = this.heroTex?.jianxiu?.[next]
         if (tex) this.player.texture = tex
       }
     } else {
