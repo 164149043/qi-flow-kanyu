@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // 老子的配置：dev 阶段不挂 singlefile（它是 build 内联用的，dev 挂上纯添乱）
@@ -10,8 +12,21 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 //   vite build --mode kanyu   → dist/kanyu.html（第二三次 emptyOutDir:false 别删前面产物）
 //   vite build --mode qiliu   → dist/qiliu.html
 // dev 无 singlefile，/ 与 /qiliu.html、/kanyu.html 直接按路径访问，input 配置无所谓但留着没坏处。
+//
+// 炼炁（lianqi，文字修真游戏，2026-09 接入）：第五入口。
+//   - vue() 插件全局挂无副作用（主项目四入口纯原生 JS，无 .vue 文件）
+//   - 豁免 singlefile：游戏素材 import.meta.glob 走 hash 资产管线，体量不适合单文件内联
+//   - alias '@' → src/lianqi（游戏代码内全是 @/ 引用，全锁在子树内不与主项目 src 冲突）
+//   - 路由 createWebHashHistory，与 MPA 子路径 /lianqi.html 天然兼容，零改动
+const lianqiDir = fileURLToPath(new URL('./src/lianqi', import.meta.url));
 export default defineConfig(({ command, mode }) => ({
-  plugins: command === 'build' ? [viteSingleFile()] : [],
+  // base 相对路径：四单文件入口全内联无感；lianqi 多文件产物（js/css/png 引用）必须相对，
+  // 否则部署到 GitHub Pages 子路径（user.github.io/repo/）会 404。dev 下 './' 等价 '/'。
+  base: './',
+  plugins: [vue(), ...(command === 'build' && mode !== 'lianqi' ? [viteSingleFile()] : [])],
+  resolve: {
+    alias: { '@': lianqiDir }
+  },
   worker: {
     format: 'es'
   },
@@ -26,6 +41,7 @@ export default defineConfig(({ command, mode }) => ({
       input: mode === 'kanyu' ? { kanyu: 'kanyu.html' }
            : mode === 'qiliu' ? { qiliu: 'qiliu.html' }
            : mode === 'mingli' ? { mingli: 'mingli.html' }
+           : mode === 'lianqi' ? { lianqi: 'lianqi.html' }
            : { main: 'index.html' },
     },
   },

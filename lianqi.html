@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover" />
+  <link rel="icon" href="favicon.ico" />
+  <title>炼炁 · 文字修真</title>
+  <style>
+    /* critical：防白闪，游戏主题本身深色 */
+    html{background:#1a1a1a}
+  </style>
+</head>
+<body>
+  <!--
+  炼炁：文字修真挂机游戏（原 vue-xiuxiangame「我的文字修仙全靠刷」整体迁入）。
+  Vue 3 + Pinia(持久化) + PixiJS 8 + Element Plus；路由 createWebHashHistory 与 MPA 子路径天然兼容。
+  构建豁免 singlefile（素材 import.meta.glob 走 hash 资产管线，单文件内联不现实），多文件产物。
+  原 51.la 统计代码不迁；存档走 localStorage（pinia-plugin-persistedstate）。
+  -->
+  <div id="app"></div>
+  <script type="module" src="/src/lianqi/main.js"></script>
+</body>
+</html>

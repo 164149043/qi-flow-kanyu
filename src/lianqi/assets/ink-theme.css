@@ -1,0 +1,235 @@
+/* ============================================================
+   墨韵灵界 · 水墨修仙主题
+   亮 = 宣纸昼 (米宣底/墨字/朱砂/鎏金)
+   暗 = 夜墨界 (夜墨底/月白字, 呼应游戏画布 #1a1625)
+   标题展示层使用系统楷体栈 (零下载, 可随时移除)
+   ============================================================ */
+
+/* ---------- 亮色 · 宣纸昼 ---------- */
+:root {
+  /* 品牌色: 朱砂 */
+  --el-color-primary: #b03a2e;
+  --el-color-primary-light-3: #c26055;
+  --el-color-primary-light-5: #d08c83;
+  --el-color-primary-light-7: #dfb6b0;
+  --el-color-primary-light-8: #e8ccc8;
+  --el-color-primary-light-9: #f2e2df;
+  --el-color-primary-dark-2: #8c2e24;
+  /* 成功=青玉 警告=鎏金 危险=赤炎 信息=黛蓝 */
+  --el-color-success: #3d7a6a;
+  --el-color-success-light-3: #649788;
+  --el-color-success-light-5: #8ab3a7;
+  --el-color-success-light-7: #b3d2c9;
+  --el-color-success-light-8: #c9e0d9;
+  --el-color-success-light-9: #e0efe9;
+  --el-color-success-dark-2: #2f6154;
+  --el-color-warning: #b8860b;
+  --el-color-warning-light-3: #cba23e;
+  --el-color-warning-light-5: #dabf7c;
+  --el-color-warning-light-7: #e7d9b3;
+  --el-color-warning-light-8: #eee4cb;
+  --el-color-warning-light-9: #f4eedc;
+  --el-color-warning-dark-2: #936b09;
+  --el-color-danger: #a03226;
+  --el-color-danger-light-3: #b75b50;
+  --el-color-danger-light-5: #cb8a82;
+  --el-color-danger-light-7: #ddb8b2;
+  --el-color-danger-light-8: #e7cdc9;
+  --el-color-danger-light-9: #f0e2df;
+  --el-color-danger-dark-2: #80281e;
+  --el-color-error: #a03226;
+  --el-color-error-light-3: #b75b50;
+  --el-color-error-light-5: #cb8a82;
+  --el-color-error-light-7: #ddb8b2;
+  --el-color-error-light-8: #e7cdc9;
+  --el-color-error-light-9: #f0e2df;
+  --el-color-error-dark-2: #80281e;
+  --el-color-info: #5a6b7d;
+  --el-color-info-light-3: #7c8a99;
+  --el-color-info-light-5: #a1acb7;
+  --el-color-info-light-7: #c4ccd3;
+  --el-color-info-light-8: #d5dbdf;
+  --el-color-info-light-9: #e7eaec;
+  --el-color-info-dark-2: #485664;
+  /* 文字: 墨色浓淡 */
+  --el-text-color-primary: #2b2622;
+  --el-text-color-regular: #4a423b;
+  --el-text-color-secondary: #75695f;
+  --el-text-color-placeholder: #a3968a;
+  --el-text-color-disabled: #c2b8ad;
+  /* 边框: 墨线 */
+  --el-border-color: #cfc4b4;
+  --el-border-color-light: #ddd4c5;
+  --el-border-color-lighter: #e7dfd2;
+  --el-border-color-extra-light: #f0e9dd;
+  --el-border-color-dark: #b3a693;
+  --el-border-color-darker: #9c8f7c;
+  /* 底色: 宣纸 */
+  --el-bg-color: #f6f1e5;
+  --el-bg-color-page: #efe7d6;
+  --el-bg-color-overlay: #faf6ec;
+  --el-fill-color: #ede5d3;
+  --el-fill-color-light: #f2ebdb;
+  --el-fill-color-lighter: #f6f0e2;
+  --el-fill-color-extra-light: #faf5ea;
+  --el-fill-color-dark: #e6dcc7;
+  --el-fill-color-darker: #dfd3ba;
+  --el-fill-color-blank: #f6f1e5;
+  /* 圆角: 温润 (撤直角像素感) */
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 3px;
+  --el-border-radius-round: 14px;
+  /* 主题自有变量 */
+  --ink-gold: #a2781c;
+  --ink-gold-soft: #c9a227;
+}
+
+/* ---------- 暗色 · 夜墨界 ---------- */
+html.dark {
+  --el-color-primary: #cf5b4a;
+  --el-color-primary-light-3: #a44a3e;
+  --el-color-primary-light-5: #7c3d35;
+  --el-color-primary-light-7: #54312e;
+  --el-color-primary-light-8: #402a29;
+  --el-color-primary-light-9: #2c2326;
+  --el-color-primary-dark-2: #dd7a6b;
+  --el-color-success: #4d9480;
+  --el-color-success-light-3: #3f7666;
+  --el-color-success-light-5: #335b51;
+  --el-color-success-light-7: #27413c;
+  --el-color-success-light-8: #223633;
+  --el-color-success-light-9: #1d2c2b;
+  --el-color-success-dark-2: #68ae9a;
+  --el-color-warning: #c9a227;
+  --el-color-warning-light-3: #a1811f;
+  --el-color-warning-light-5: #7a6118;
+  --el-color-warning-light-7: #524214;
+  --el-color-warning-light-8: #3f3514;
+  --el-color-warning-light-9: #2d281a;
+  --el-color-warning-dark-2: #d4b04a;
+  --el-color-danger: #c0453a;
+  --el-color-danger-light-3: #9a3a33;
+  --el-color-danger-light-5: #732f2c;
+  --el-color-danger-light-7: #4d2526;
+  --el-color-danger-light-8: #3a2022;
+  --el-color-danger-light-9: #281c1f;
+  --el-color-danger-dark-2: #d3655b;
+  --el-color-error: #c0453a;
+  --el-color-error-light-3: #9a3a33;
+  --el-color-error-light-5: #732f2c;
+  --el-color-error-light-7: #4d2526;
+  --el-color-error-light-8: #3a2022;
+  --el-color-error-light-9: #281c1f;
+  --el-color-error-dark-2: #d3655b;
+  --el-color-info: #8b9aab;
+  --el-color-info-light-3: #6f7b8a;
+  --el-color-info-light-5: #545f6d;
+  --el-color-info-light-7: #3a424e;
+  --el-color-info-light-8: #2e343e;
+  --el-color-info-light-9: #23272f;
+  --el-color-info-dark-2: #a3aeba;
+  --el-text-color-primary: #e8e0d0;
+  --el-text-color-regular: #cfc5b2;
+  --el-text-color-secondary: #a89d8a;
+  --el-text-color-placeholder: #7d7466;
+  --el-text-color-disabled: #5d564c;
+  --el-border-color: #46403b;
+  --el-border-color-light: #3a342f;
+  --el-border-color-lighter: #322c29;
+  --el-border-color-extra-light: #2a2523;
+  --el-border-color-dark: #544c45;
+  --el-border-color-darker: #625a51;
+  --el-bg-color: #1e1a24;
+  --el-bg-color-page: #17141d;
+  --el-bg-color-overlay: #262130;
+  --el-fill-color: #2a2433;
+  --el-fill-color-light: #2f2839;
+  --el-fill-color-lighter: #352d40;
+  --el-fill-color-extra-light: #3a3246;
+  --el-fill-color-dark: #251f2d;
+  --el-fill-color-darker: #201b27;
+  --el-fill-color-blank: #1e1a24;
+  --ink-gold: #d4af37;
+  --ink-gold-soft: #e0c060;
+}
+
+/* ---------- 纸纹噪点 (极轻, 亮暗通用) ---------- */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+html.dark body::before {
+  opacity: 0.05;
+}
+
+/* ---------- 按钮: 墨底朱砂, 晕染微动 ---------- */
+.el-button {
+  font-weight: 500;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+}
+
+.el-button:not(.is-text):not(.is-link):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(176, 58, 46, 0.25);
+}
+
+.el-button:not(.is-text):not(.is-link):active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ---------- 弹窗: 金线标题 + 墨框 ---------- */
+.el-dialog,
+.el-drawer,
+.el-message-box {
+  border: 1px solid var(--el-border-color-darker);
+  box-shadow: 0 8px 32px rgba(30, 20, 15, 0.28);
+}
+
+.el-dialog__title::after,
+.el-drawer__title::after {
+  content: '';
+  display: block;
+  margin-top: 6px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ink-gold-soft), transparent);
+}
+
+/* ---------- 通知/消息: 金线描边 ---------- */
+.el-notification {
+  border-left: 3px solid var(--ink-gold);
+}
+
+.el-message--success {
+  border-color: var(--el-color-success);
+}
+
+/* ---------- 进度条: 玉泽 ---------- */
+.el-progress-bar__outer {
+  background-color: var(--el-fill-color-dark);
+}
+
+/* ---------- 滚动条: 墨条 ---------- */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-darker);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-color-primary);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
