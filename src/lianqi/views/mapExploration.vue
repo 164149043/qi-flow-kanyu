@@ -145,7 +145,7 @@
   // 图例像素图标 (玩家/NPC 用真素材形象, 地形保持程序化)
   const icons = {
     ...legendIcons(),
-    player: assetUrl('zimage', 'front'),
+    player: assetUrl('jianxiu', 'front'),
     npc: assetUrl('wife', 'qingyun')
   }
   // 玩家数据
@@ -793,10 +793,11 @@
       } else {
         // 向下移动
         fishing.value.innerPosition -= 1
-        syncHook()
         // 检查碰撞
         checkCollision()
       }
+      // 每帧无条件同步钩位: 画布异步就绪后钩自动从开局的错误位置回正到底部
+      syncHook()
       // 请求下一帧动画
       fishing.value.moveDownAnimationId = requestAnimationFrame(step)
     }
@@ -825,7 +826,9 @@
   // 同步鱼钩到像素画布 (innerPosition: 0=贴底, 向上增加)
   const syncHook = () => {
     const { bottom, hookH } = canvasMetrics()
-    fishingCanvasRef.value?.setHookY(bottom - fishing.value.innerPosition - hookH)
+    // 画布异步初始化未就绪时 getAreaRange 返回 0 (truthy 不走兜底), 用标称底值防钩被钉到画面外顶端
+    const safeBottom = bottom > 0 ? bottom : 368
+    fishingCanvasRef.value?.setHookY(safeBottom - fishing.value.innerPosition - hookH)
   }
 
   // 检查碰撞 (像素版: 重叠判定由画布每帧计算, 页面读取结果计分)
