@@ -863,7 +863,10 @@
       // 清空所有定时
       clearAllTiming()
       ElMessageBox.confirm(
-        `<div class="fish-catch"><img class="fish-icon" src="${fishInfo.icon}" /><p>${fishInfo.description}</p></div>`,
+        `<div class="fish-catch"><img class="fish-icon" src="${fishInfo.icon}" />` +
+          `<div class="fish-info"><p class="fish-name">${fishInfo.name}</p>` +
+          `<p class="fish-desc">${fishInfo.description}</p>` +
+          `<p class="fish-price">可卖 <b>${fishInfo.price}</b> 灵石</p></div></div>`,
         fishInfo.name,
         {
           center: true,
@@ -1192,16 +1195,7 @@
     box-sizing: border-box;
   }
 
-  /* 钓到鱼弹窗 */
-  .fish-catch {
-    text-align: center;
-  }
-
-  .fish-catch .fish-icon {
-    width: 96px;
-    height: 96px;
-    image-rendering: pixelated;
-  }
+  /* 钓到鱼弹窗样式在文件末尾全局 style 块 (ElMessageBox 挂 body, scoped 够不到) */
 
   .outer-wrapper {
     display: flex;
@@ -1280,6 +1274,43 @@
 </style>
 
 <style>
+  /* 钓到鱼弹窗渔获卡 (ElMessageBox 挂 body, 必须全局样式) */
+  .fish-catch {
+    text-align: center;
+  }
+
+  .fish-catch .fish-icon {
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+  }
+
+  .fish-catch .fish-name {
+    margin: 8px 0 4px;
+    font-family: KaiTi, STKaiti, serif;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--el-color-primary);
+  }
+
+  .fish-catch .fish-desc {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.7;
+    opacity: 0.85;
+  }
+
+  .fish-catch .fish-price {
+    margin: 0;
+    font-size: 14px;
+    color: var(--el-color-warning);
+  }
+
+  .fish-catch .fish-price b {
+    font-size: 17px;
+  }
+
   /* 钓鱼动画 */
   @keyframes wobble {
     0% {
