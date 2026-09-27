@@ -991,7 +991,11 @@ let actorCache = null
 export const loadActorTextures = async () => {
   if (actorCache) return actorCache
   const entries = Object.entries(frameUrls)
-    .map(([path, url]) => ({ parsed: parseFrameKey(path), url: `${url}?v=3` }))
+    .map(([path, url]) => ({
+      parsed: parseFrameKey(path),
+      // build 下 <4KB 的小图被 Vite 内联为 dataURL, 拼 query 会破坏加载 (线上人物回退像素小人的根因)
+      url: url.startsWith('data:') ? url : `${url}?v=3`
+    }))
     .filter(e => e.parsed)
   const result = {}
   await Promise.all(
