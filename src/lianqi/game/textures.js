@@ -1034,14 +1034,15 @@ export const legendIcons = () => {
 }
 
 // 鱼种图鉴定义 (页面结算与画布形象共用, rarity 总和 = 1)
+// 价格为原版 5 倍 (2026-09-27): 钓鱼贴钩难度大, 奖励 5 倍平衡
 export const FISH_KINDS = [
-  { key: 'silver', name: '银鳞小鱼', price: 80, rarity: 0.42, desc: '最常见的灵鱼, 银光闪闪, 是钓鱼入门的口粮。' },
-  { key: 'qing', name: '青灵鲤', price: 150, rarity: 0.25, desc: '水泽灵气所化的青鲤, 传说食之明目。' },
-  { key: 'red', name: '赤尾鲤', price: 250, rarity: 0.14, desc: '尾如火焰的赤鲤, 力大善游, 极难牵住。' },
-  { key: 'blue', name: '幽蓝灯鱼', price: 400, rarity: 0.08, desc: '额前悬着一盏幽蓝灯, 深水引路的灵物。' },
-  { key: 'eel', name: '紫电鳗', price: 600, rarity: 0.06, desc: '身缠紫电的鳗灵, 上钩时水面噼啪作响。' },
-  { key: 'puffer', name: '云纹河豚', price: 800, rarity: 0.03, desc: '圆滚滚的云纹河豚, 气鼓鼓地守着灵泉。' },
-  { key: 'koi', name: '金鳞龙鲤', price: 1500, rarity: 0.02, desc: '跃过龙门之鲤, 金鳞灼灼, 千载难逢。' }
+  { key: 'silver', name: '银鳞小鱼', price: 400, rarity: 0.42, desc: '最常见的灵鱼, 银光闪闪, 是钓鱼入门的口粮。' },
+  { key: 'qing', name: '青灵鲤', price: 750, rarity: 0.25, desc: '水泽灵气所化的青鲤, 传说食之明目。' },
+  { key: 'red', name: '赤尾鲤', price: 1250, rarity: 0.14, desc: '尾如火焰的赤鲤, 力大善游, 极难牵住。' },
+  { key: 'blue', name: '幽蓝灯鱼', price: 2000, rarity: 0.08, desc: '额前悬着一盏幽蓝灯, 深水引路的灵物。' },
+  { key: 'eel', name: '紫电鳗', price: 3000, rarity: 0.06, desc: '身缠紫电的鳗灵, 上钩时水面噼啪作响。' },
+  { key: 'puffer', name: '云纹河豚', price: 4000, rarity: 0.03, desc: '圆滚滚的云纹河豚, 气鼓鼓地守着灵泉。' },
+  { key: 'koi', name: '金鳞龙鲤', price: 7500, rarity: 0.02, desc: '跃过龙门之鲤, 金鳞灼灼, 千载难逢。' }
 ]
 
 // 鱼种图标 (dataURL, 供结算弹窗展示)
