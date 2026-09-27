@@ -42,6 +42,7 @@
   import { useRoute } from 'vue-router'
   import { ref, watch, computed, onMounted } from 'vue'
   import { useMainStore } from './plugins/store'
+  import { installGuide } from './plugins/guide'
 
   const player = ref({})
   const route = useRoute()
@@ -55,6 +56,8 @@
   )
 
   onMounted(() => {
+    // 内置新手指引 (右下角「引」悬浮球, 所有环境开箱即用)
+    installGuide()
     // 初始化玩家数据
     player.value = useMainStore().player
     setInterval(() => {
