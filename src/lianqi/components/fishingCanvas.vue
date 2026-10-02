@@ -68,7 +68,7 @@
     const fishTex = fishTexRef?.fish?.[fishKind.key] || textures().fishKindsTex[fishKind.key]
     fish = new Sprite(fishTex)
     fish.anchor.set(0.5, 0.5)
-    fish.__baseScale = fishTexRef?.fish?.[fishKind.key] ? 1 : 3
+    fish.__baseScale = fishTexRef?.fish?.[fishKind.key] ? 0.8 : 3
     fish.scale.set(fish.__baseScale)
     world.addChild(fish)
     // 开局操作提示 (常显大字, 3 秒后渐隐)
