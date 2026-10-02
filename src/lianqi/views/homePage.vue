@@ -2887,17 +2887,18 @@
 <style>
   /* 道侣像素形象 (列表头像 / 弹窗立绘 / 抽屉立绘) */
   .wife-avatar {
-    width: 36px;
-    height: 36px;
-    image-rendering: pixelated;
+    /* 竖版立绘: 只定高保比例 (36x36 定死会把立绘压成矮方块) */
+    height: 56px;
+    width: auto;
     vertical-align: middle;
-    margin-right: 4px;
+    margin-right: 6px;
+    border-radius: 6px;
   }
 
   .wife-figure {
-    width: 96px;
-    height: 96px;
-    image-rendering: pixelated;
+    /* 竖版立绘: 只定高, 宽随原比例 (定死宽高会把立绘压扁) */
+    height: 180px;
+    width: auto;
     display: block;
     margin: 0 auto 8px;
   }
@@ -2919,9 +2920,8 @@
   }
 
   .wife-figure-lg {
-    width: 128px;
-    height: 128px;
-    image-rendering: pixelated;
+    height: 260px;
+    width: auto;
   }
 
   .equipAll {
