@@ -6,7 +6,6 @@ import {
   Globe,
   Upload,
   Download,
-  Github,
   RotateCcw,
   Keyboard} from 'lucide-react';
 import { Modal } from './common';
@@ -23,7 +22,6 @@ import {
 } from '../utils/saveManagerUtils';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
-import ChangelogModal from './ChangelogModal';
 
 /** 版本更新提示组件 */
 import ShortcutsModal from './ShortcutsModal';
@@ -53,7 +51,6 @@ const SettingsModal: React.FC<Props> = ({
   onRestartGame,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const fastBattleSettlement = useUIStore((state) => state.fastBattleSettlement);
   const setFastBattleSettlement = useUIStore((state) => state.setFastBattleSettlement);
@@ -463,64 +460,8 @@ const SettingsModal: React.FC<Props> = ({
               </p>
             </div>
           </div>
-
-          {/* 关于 */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Github size={20} className="text-stone-400" />
-              <h3 className="font-bold">关于</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="bg-stone-900/50 border border-stone-700 rounded px-4 py-3">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-stone-400">游戏版本</span>
-                  <span className="text-sm font-mono text-mystic-gold">
-                    v{import.meta.env.VITE_APP_VERSION || '-'}
-                  </span>
-                </div>
-                <div className="text-xs text-stone-500">
-                  最后更新: 2026-06-22
-                </div>
-              </div>
-              <a
-                href="https://github.com/JeasonLoop/react-xiuxian-game"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 w-full bg-stone-700 hover:bg-stone-600 text-stone-200 border border-stone-600 rounded px-4 py-2 transition-colors"
-              >
-                <Github size={16} />
-                <span>GitHub 仓库</span>
-                <span className="ml-auto text-xs text-stone-400">↗</span>
-              </a>
-              <button
-                onClick={() => setIsChangelogOpen(true)}
-                className="flex items-center gap-2 w-full bg-stone-700 hover:bg-stone-600 text-stone-200 border border-stone-600 rounded px-4 py-2 transition-colors text-left"
-              >
-                <Save size={16} />
-                <span>查看更新日志</span>
-              </button>
-              <a
-                href="https://linux.do/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 w-full bg-stone-700 hover:bg-stone-600 text-stone-200 border border-stone-600 rounded px-4 py-2 transition-colors mt-2"
-              >
-                <span>本项目已认可LINUX.DO</span>
-                <span className="ml-auto text-xs text-stone-400">↗</span>
-              </a>
-              <p className="text-xs text-stone-500 mt-2">
-                一款文字修仙小游戏，欢迎 Star 和 Fork！
-              </p>
-            </div>
-          </div>
         </div>
       </Modal>
-
-      {/* 更新日志弹窗 */}
-      <ChangelogModal
-        isOpen={isChangelogOpen}
-        onClose={() => setIsChangelogOpen(false)}
-      />
 
       {/* 快捷键说明弹窗 */}
       <ShortcutsModal
