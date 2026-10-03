@@ -78,6 +78,7 @@ export function createPlayerListing(
     sellerId: 'player',
     sourceItemId: item.id,
     sellerItemData: JSON.stringify(listingItemData), // 存完整数据用于精准还原
+    listedAt: Date.now(), // 单机模式：随机买家收购计时起点
   };
 }
 

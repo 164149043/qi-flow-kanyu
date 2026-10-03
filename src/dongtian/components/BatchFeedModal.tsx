@@ -1,4 +1,4 @@
-import { Filter, Heart, Layers, Package, X, Check, Info, Minus, Plus } from 'lucide-react';
+import { Filter, Heart, Layers, Package, Check, Info, Minus, Plus} from 'lucide-react';
 import { Item, ItemType, ItemRarity, PlayerStats } from '../types';
 import { getRarityTextColor, getRarityBorder } from '../utils/rarityUtils';
 import { normalizeTypeLabel } from '../utils/itemUtils';

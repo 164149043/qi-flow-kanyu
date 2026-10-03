@@ -1056,6 +1056,8 @@ export interface MarketItem {
   sellerId?: 'system' | 'player' | string | number;
   /** 来源物品ID（玩家上架时记录原物品ID，用于下架找回） */
   sourceItemId?: string;
+  /** 玩家挂单的上架时间戳（毫秒），单机模式随机买家收购结算用 */
+  listedAt?: number;
   /** 完整原始物品JSON（用于下架时精准还原，避免字段丢失） */
   sellerItemData?: string;
 }

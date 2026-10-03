@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { PlayerStats } from '../types';
 import { REALM_ORDER, REALM_DATA } from '../constants/index';
 import { Modal } from './common';
-import { RefreshCw, Star, BookOpen, Gem, AlertTriangle, CheckCircle, XCircle, Lock } from 'lucide-react';
+import { RefreshCw, Star, AlertTriangle, CheckCircle, XCircle, Lock} from 'lucide-react';
 import { createInitialPlayer } from '../utils/playerUtils';
 
 interface Props {

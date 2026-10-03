@@ -3,12 +3,10 @@ import Modal from './common/Modal';
 import {
   Shield,
   Sword,
-  X,
   Zap,
   Option,
   ArrowRight,
-  FastForward,
-} from 'lucide-react';
+  FastForward} from 'lucide-react';
 import {
   BattleState,
   PlayerAction,

@@ -18,9 +18,7 @@ import {
   Plus,
   Minus,
   Sparkles,
-  XCircle,
-  AlertTriangle,
-} from 'lucide-react';
+  AlertTriangle} from 'lucide-react';
 import { Modal } from './common';
 import { useGameStore } from '../store';
 

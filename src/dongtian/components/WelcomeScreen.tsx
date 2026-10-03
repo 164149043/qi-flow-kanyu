@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { Sparkles, Play, Upload } from 'lucide-react';
-import logo from '../public/assets/images/logo.png';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveGameData,
@@ -102,15 +101,15 @@ const WelcomeScreen: React.FC<Props> = ({ hasSave, onStart, onContinue }) => {
 
       {/* 主要内容区域 */}
       <div className="relative z-10 flex flex-col items-center justify-center w-full h-full p-3 sm:p-4 md:p-6 lg:p-8">
-        {/* Logo 图片 */}
-        <div className="mb-4 sm:mb-6 md:mb-8 lg:mb-12 animate-fade-in">
+        {/* 游戏标题（主视觉，文字版） */}
+        <div
+          className="text-center mb-4 sm:mb-6 md:mb-8 lg:mb-12 px-4 animate-fade-in"
+          style={{ animationDelay: '0.2s' }}
+        >
           <div className="relative">
-            <img
-              src={logo}
-              alt="云灵修仙传"
-              className="w-[70vw] max-w-[280px] sm:w-[60vw] sm:max-w-[400px] md:max-w-[500px] lg:max-w-[600px] h-auto max-h-[30vh] sm:max-h-[35vh] md:max-h-[40vh] lg:max-h-[400px] object-contain drop-shadow-2xl relative z-10 animate-glow-pulse"
-            />
-            {/* 光晕效果 */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-serif font-bold text-mystic-gold tracking-wide sm:tracking-wider md:tracking-widest mb-2 sm:mb-3 md:mb-4 drop-shadow-2xl relative z-10 animate-glow-pulse">
+              洞天修仙纪
+            </h1>
             {/* 光晕效果 */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[115%] aspect-square -z-10 opacity-20 sm:opacity-85 pointer-events-none">
               <div
@@ -122,16 +121,6 @@ const WelcomeScreen: React.FC<Props> = ({ hasSave, onStart, onContinue }) => {
               />
             </div>
           </div>
-        </div>
-
-        {/* 游戏标题 */}
-        <div
-          className="text-center mb-4 sm:mb-6 md:mb-8 lg:mb-12 px-4 animate-fade-in"
-          style={{ animationDelay: '0.2s' }}
-        >
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-serif font-bold text-mystic-gold tracking-wide sm:tracking-wider md:tracking-widest mb-2 sm:mb-3 md:mb-4 drop-shadow-lg">
-            云灵修仙传
-          </h1>
           <p className="text-stone-400 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-light px-2">
             踏上你的长生之路
           </p>

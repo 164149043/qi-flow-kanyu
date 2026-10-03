@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Modal from './common/Modal';
 import { createPortal } from 'react-dom';
-import { X, Star, Award, Info, Zap, BarChart3, TrendingUp, Sparkles, BookOpen, Users, Beaker, Package, Swords, HeartPulse, RotateCcw, Layers } from 'lucide-react';
+import { X, Star, Award, Info, Zap, BarChart3, TrendingUp, Sparkles, Beaker, Swords, HeartPulse, RotateCcw, Layers} from 'lucide-react';
 import { PlayerStats, ItemRarity, RealmType, Title, ItemType } from '../types';
 import {
   TALENTS,

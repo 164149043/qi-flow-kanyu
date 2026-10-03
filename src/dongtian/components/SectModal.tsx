@@ -6,7 +6,7 @@ import { useGameStore } from '../store/gameStore';
 import { getLocalDateString } from '../utils/dateUtils';
 import { showConfirm, showError, showSuccess } from '../utils/toastUtils';
 import { generateRandomSects, generateRandomSectTasks, generateSectShopItems, RandomSectTask } from '../services/randomService';
-import { X, Users, ShoppingBag, Shield, Scroll, ArrowUp, RefreshCw, BookOpen, Sparkles, Crown, Flame, Star, Zap, Lightbulb } from 'lucide-react';
+import {   ShoppingBag, Shield, Scroll, ArrowUp, RefreshCw, BookOpen, Sparkles, Crown, Flame, Star, Zap, Lightbulb} from 'lucide-react';
 import SectTaskModal from './SectTaskModal';
 import { CULTIVATION_ARTS } from '../constants/cultivation';
 import { CultivationArt } from '../types';

@@ -8,10 +8,7 @@ import {
   Download,
   Github,
   RotateCcw,
-  Keyboard,
-  User,
-  LogOut,
-} from 'lucide-react';
+  Keyboard} from 'lucide-react';
 import { Modal } from './common';
 import { GameSettings } from '../types';
 import dayjs from 'dayjs';

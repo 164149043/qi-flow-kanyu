@@ -17,6 +17,6 @@ export const STORAGE_KEYS = {
   CULTIVATION_INTRO_SHOWN: 'xiuxian-cultivation-intro-shown',
   /** 是否已显示打坐/历练操作栏引导 */
   ACTION_BAR_GUIDE_SHOWN: 'xiuxian-action-bar-guide-shown',
-  /** 云灵修仙本地存档备份键 */
+  /** 洞天修仙纪本地存档备份键 */
   SAVE_BACKUP: 'xiuxian-game-save-backup',
 } as const;

@@ -12,10 +12,8 @@ import {
   BarChart3,
   Bug,
   Home,
-  CloudUpload,
   Lock,
-  Store,
-} from 'lucide-react';
+  Store} from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { showSuccess, showError } from '../utils/toastUtils';
 import { isDebugFeatureAvailable } from '../utils/debugMode';

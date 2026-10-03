@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { showError } from '../utils/toastUtils';
 import { rollSpiritualRoots } from '../utils/playerUtils';
+import { readBaziRoots, HOUR_OPTIONS, ROOT_ATTRIBUTE_HINT, type BaziReading } from '../utils/baziRoots';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveGameData,
@@ -83,11 +84,31 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [playerName, setPlayerName] = useState('');
   const [spiritualRoots, setSpiritualRoots] = useState<PlayerStats['spiritualRoots']>(() => rollSpiritualRoots());
+  const [birthDate, setBirthDate] = useState('');
+  const [birthHour, setBirthHour] = useState('12');
+  const [baziReading, setBaziReading] = useState<BaziReading | null>(null);
 
   // 改命：重掷道号与五行灵根
   const handleReRollFate = () => {
     setPlayerName(generateRandomDaoName());
     setSpiritualRoots(rollSpiritualRoots());
+    setBaziReading(null);
+  };
+
+  // 生辰定命：按四柱排盘确定灵根（同八字同命，确定性映射）
+  const handleBaziRoll = () => {
+    if (!birthDate) {
+      showError('请先选择出生日期');
+      return;
+    }
+    const [y, m, d] = birthDate.split('-').map(Number);
+    const reading = readBaziRoots(y, m, d, Number(birthHour));
+    if (!reading) {
+      showError('排盘失败，请检查出生日期');
+      return;
+    }
+    setBaziReading(reading);
+    setSpiritualRoots(reading.roots);
   };
   const [selectedTalentIds, setSelectedTalentIds] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<TalentCategory | '全部'>('全部');
@@ -293,7 +314,7 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
         {/* 标题 */}
         <div className="text-center mb-4 md:mb-6">
           <h1 className="text-2xl md:text-4xl font-serif font-bold text-mystic-gold tracking-widest mb-2">
-            云灵修仙
+            洞天修仙纪
           </h1>
           <p className="text-stone-400 text-sm md:text-lg">踏上你的长生之路</p>
         </div>
@@ -416,11 +437,48 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
                       {getRootGradeLabel(spiritualRoots)}
                     </span>
                   </div>
+                  {/* 生辰定命（四柱排盘） */}
+                  <div className="mb-3 p-2.5 bg-stone-900/60 border border-stone-700/70 rounded">
+                    <div className="text-[11px] text-stone-500 mb-2">以生辰定命 · 四柱排盘定灵根</div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="date"
+                        value={birthDate}
+                        onChange={(e) => setBirthDate(e.target.value)}
+                        max="2026-12-31"
+                        className="flex-1 px-2.5 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
+                      />
+                      <select
+                        value={birthHour}
+                        onChange={(e) => setBirthHour(e.target.value)}
+                        className="px-2 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
+                      >
+                        {HOUR_OPTIONS.map((o) => (
+                          <option key={o.hour} value={o.hour}>{o.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleBaziRoll}
+                        className="px-3 py-2 bg-stone-600 hover:bg-stone-500 border border-stone-500 rounded text-sm text-stone-100 font-semibold transition-colors active:scale-[0.98] touch-manipulation shrink-0"
+                      >
+                        排盘定命
+                      </button>
+                    </div>
+                    {baziReading && (
+                      <div className="mt-2 text-xs text-stone-400">
+                        四柱 <span className="text-stone-200 font-semibold tracking-widest">{baziReading.pillars.join(' ')}</span>
+                        {' '}· 日主 <span className="text-stone-200">{baziReading.dayGan}</span>
+                        {' '}· 灵根已按此命盘落定
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-1.5 mb-3">
                     {(['metal', 'wood', 'water', 'fire', 'earth'] as const).map((root) => {
                       const value = spiritualRoots[root];
                       return (
-                        <div key={root} className="flex items-center gap-2">
+                        <div key={root} className="flex items-center gap-2" title={ROOT_ATTRIBUTE_HINT[root]}>
                           <span className={`w-5 text-xs font-bold text-center ${ROOT_TEXT_COLORS[root]}`}>
                             {ROOT_NAMES[root]}
                           </span>
@@ -443,9 +501,21 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
                     <Dices size={18} />
                     改命 · 重掷道号与五行
                   </button>
-                  <p className="text-[11px] text-stone-500 mt-2 text-center">
-                    灵根影响修炼速度、突破成功率与功法加成；不满意道号也可单独修改
-                  </p>
+                  <details className="mt-2 group">
+                    <summary className="text-[11px] text-stone-500 cursor-pointer hover:text-stone-400 text-center list-none">
+                      五行灵根影响哪些数值 ▾
+                    </summary>
+                    <div className="mt-1.5 text-[11px] leading-relaxed text-stone-500 bg-stone-900/60 rounded p-2 space-y-0.5">
+                      <div>· 每点灵根总值：修炼速度 +0.1%、突破成功率 +0.05%</div>
+                      <div>· 对应五行功法：每点 +0.5% 功法效果</div>
+                      <div>· 金：{ROOT_ATTRIBUTE_HINT.metal}</div>
+                      <div>· 木：{ROOT_ATTRIBUTE_HINT.wood}</div>
+                      <div>· 水：{ROOT_ATTRIBUTE_HINT.water}</div>
+                      <div>· 火：{ROOT_ATTRIBUTE_HINT.fire}</div>
+                      <div>· 土：{ROOT_ATTRIBUTE_HINT.earth}</div>
+                      <div className="text-stone-600">道号不满意可单独修改；排盘定命后随机改命会覆盖命盘</div>
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>

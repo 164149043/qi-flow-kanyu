@@ -24,14 +24,12 @@ import {
   Trash,
   Zap,
   Search,
-  Filter,
   SlidersHorizontal,
   Wand,
   Lock,
   Unlock,
   Lightbulb,
-  Sparkle,
-} from 'lucide-react';
+  Sparkle} from 'lucide-react';
 import { REALM_ORDER, SPIRITUAL_ROOT_NAMES, FOUNDATION_TREASURES, HEAVEN_EARTH_ESSENCES, HEAVEN_EARTH_MARROWS, LONGEVITY_RULES, CULTIVATION_ARTS } from '../constants/index';
 import EquipmentPanel from './EquipmentPanel';
 import BatchDiscardModal from './BatchDiscardModal';

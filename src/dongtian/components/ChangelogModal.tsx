@@ -33,7 +33,7 @@ const ChangelogModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setLoading(true);
     try {
       // 尝试从 public 目录加载
-      const response = await fetch('/CHANGELOG.md');
+      const response = await fetch('./CHANGELOG.md');
       if (!response.ok) {
         throw new Error('Failed to fetch changelog');
       }

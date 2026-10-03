@@ -11,11 +11,8 @@ import {
   Bug,
   Calendar,
   Home,
-  Users,
-  CloudUpload,
   Lock,
-  Store,
-} from 'lucide-react';
+  Store} from 'lucide-react';
 import { PlayerStats } from '../types';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import { ACHIEVEMENTS } from '../constants';
@@ -201,7 +198,7 @@ function GameHeader({
             clickCount > 0 ? `点击 ${5 - clickCount} 次进入调试模式` : undefined
           }
         >
-          云灵修仙
+          洞天修仙纪
         </h1>
         <div className="flex items-center gap-2">
           <span

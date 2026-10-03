@@ -7,6 +7,7 @@
 import type { PlayerStats, MarketItem } from '../../types';
 import { useGameStore, useUIStore } from '../../store';
 import { createPlayerListing, restoreFromListing, generateMarketItems } from '../../services/auctionService';
+import { getRandomSellerName } from '../../constants/auctionHouse';
 import { addItemToInventory } from '../../utils/inventoryUtils';
 
 interface UseTradeMarketHandlersProps {
@@ -42,9 +43,36 @@ export function useTradeMarketHandlers(
     setItems([...generateMarketItems(p), ...getPlayerListings()]);
   };
 
-  /** 打开交易行：补一批 NPC 货源 */
+  /**
+   * 单机随机买家收购：挂单满 90 秒后，每次结算每条 25% 概率被路过的散修买走，
+   * 灵石即时入账（替代原联机模式的服务端 payout 结算）。
+   */
+  const settlePlayerSales = (p: PlayerStats) => {
+    const items = getItems();
+    const now = Date.now();
+    const sold: MarketItem[] = [];
+    const kept: MarketItem[] = [];
+    for (const it of items) {
+      if (it.sellerId !== 'player') { kept.push(it); continue; }
+      if (now - (it.listedAt || 0) < 90_000) //TEST { kept.push(it); continue; }
+      if (Math.random() < 0.25) sold.push(it); else kept.push(it);
+    }
+    if (sold.length === 0) return;
+    const earnings = sold.reduce((sum, it) => sum + it.price * (it.quantity || 1), 0);
+    setItems(kept);
+    setPlayer((prev) =>
+      prev ? { ...prev, spiritStones: (Number(prev.spiritStones) || 0) + earnings } : prev
+    );
+    for (const it of sold) {
+      addLog(`你上架的【${it.name}】x${it.quantity || 1} 被${getRandomSellerName()}购走。`, 'gain');
+    }
+    addLog(`交易行售出结算：共入账 ${earnings} 灵石。`, 'special');
+  };
+
+  /** 打开交易行：先结算随机买家收购，再补一批 NPC 货源 */
   const handleOpenTradeMarket = async () => {
     if (!player) return;
+    settlePlayerSales(player);
     restockMarket(player);
   };
 
@@ -168,9 +196,10 @@ export function useTradeMarketHandlers(
     addLog(`已将【${listing.name}】从交易行下架，放回背包。`, 'normal');
   };
 
-  /** 免费同步市场数据（购买tab切换时自动调用）；单机版市场无 NPC 货物时自动补货 */
+  /** 免费同步市场数据（购买tab切换时自动调用）；顺带结算随机买家收购，无 NPC 货物时补货 */
   const handleSyncMarket = async () => {
     if (!player) return;
+    settlePlayerSales(player);
     const npcItems = getItems().filter((i) => i.sellerId !== 'player');
     if (npcItems.length === 0) {
       restockMarket(player);
