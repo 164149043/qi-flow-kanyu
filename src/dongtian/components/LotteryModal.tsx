@@ -114,7 +114,7 @@ const LotteryModal: React.FC<Props> = ({ isOpen, onClose, player, onDraw }) => {
           ))}
 
           {/* 中心光点 */}
-          <div className="relative z-10 w-16 h-16 bg-mystic-gold rounded-full shadow-[0_0_50px_rgba(203,161,53,0.8)] flex items-center justify-center animate-pulse">
+          <div className="relative z-10 w-16 h-16 bg-mystic-gold rounded-full shadow-[0_0_50px_rgba(109,203,244,0.8)] flex items-center justify-center animate-pulse">
             <Sparkles
               className="text-white w-8 h-8 animate-spin"
               style={{ animationDuration: '3s' }}

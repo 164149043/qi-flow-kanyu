@@ -96,7 +96,7 @@ const WelcomeScreen: React.FC<Props> = ({ hasSave, onStart, onContinue }) => {
     <div className="fixed inset-0 bg-gradient-to-br from-stone-900 via-stone-800 to-stone-900 flex items-center justify-center z-50 overflow-hidden touch-manipulation">
       {/* 背景装饰 */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(203,161,53,0.1),transparent_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(109,203,244,0.1),transparent_70%)]" />
       </div>
 
       {/* 主要内容区域 */}
@@ -116,13 +116,13 @@ const WelcomeScreen: React.FC<Props> = ({ hasSave, onStart, onContinue }) => {
                 className="w-full h-full animate-glow-pulse blur-2xl sm:blur-3xl"
                 style={{
                   background:
-                    'radial-gradient(circle, rgba(203, 161, 53, 0.6) 0%, transparent 70%)',
+                    'radial-gradient(circle, rgba(109, 203, 244, 0.6) 0%, transparent 70%)',
                 }}
               />
             </div>
           </div>
           <p className="text-stone-400 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-light px-2">
-            踏上你的长生之路
+            踏上你的<span className="text-astra-ember/90 font-normal">长生之路</span>
           </p>
         </div>
 

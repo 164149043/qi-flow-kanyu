@@ -85,7 +85,7 @@ export function LotteryRewardsToast({ rewards, onClose }: LotteryRewardsProps) {
       onClick={onClose}
     >
       <div
-        className="bg-stone-900 border-2 border-mystic-gold p-1 rounded-lg shadow-[0_0_50px_rgba(203,161,53,0.3)] max-w-md w-[90%] md:w-auto animate-in zoom-in duration-500"
+        className="bg-stone-900 border-2 border-mystic-gold p-1 rounded-lg shadow-[0_0_50px_rgba(109,203,244,0.3)] max-w-md w-[90%] md:w-auto animate-in zoom-in duration-500"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-stone-800 rounded px-6 py-8 flex flex-col items-center gap-6">
@@ -109,7 +109,7 @@ export function LotteryRewardsToast({ rewards, onClose }: LotteryRewardsProps) {
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-mystic-gold shadow-[0_0_5px_rgba(203,161,53,1)]" />
+                  <div className="w-2 h-2 rounded-full bg-mystic-gold shadow-[0_0_5px_rgba(109,203,244,1)]" />
                   <span className="font-semibold text-stone-200">{reward.name}</span>
                 </div>
                 {reward.quantity !== undefined && (

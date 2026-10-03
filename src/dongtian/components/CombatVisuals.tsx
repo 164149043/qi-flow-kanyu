@@ -41,10 +41,10 @@ const CombatVisuals: React.FC<Props> = ({ effects }) => {
                   `}
                   style={{
                     textShadow: isCrafting
-                      ? '0 0 30px rgba(203, 161, 53, 0.6), 0 2px 4px rgba(0,0,0,0.8)'
-                      : '0 0 40px rgba(203, 161, 53, 1), 0 0 60px rgba(203, 161, 53, 0.6), 0 2px 4px rgba(0,0,0,0.8)',
+                      ? '0 0 30px rgba(109, 203, 244, 0.6), 0 2px 4px rgba(0,0,0,0.8)'
+                      : '0 0 40px rgba(109, 203, 244, 1), 0 0 60px rgba(109, 203, 244, 0.6), 0 2px 4px rgba(0,0,0,0.8)',
                     animationDuration: isCrafting ? '1.5s' : '2.5s',
-                    filter: isCrafting ? 'none' : 'drop-shadow(0 0 20px rgba(203, 161, 53, 0.8))',
+                    filter: isCrafting ? 'none' : 'drop-shadow(0 0 20px rgba(109, 203, 244, 0.8))',
                   }}
                 >
                   {effect.value}
@@ -63,8 +63,8 @@ const CombatVisuals: React.FC<Props> = ({ effects }) => {
                     animationDelay: `${i * 0.08}s`,
                     animationDuration: isCrafting ? '1.5s' : '2.5s',
                     boxShadow: isCrafting
-                      ? '0 0 8px rgba(203, 161, 53, 0.6)'
-                      : '0 0 15px rgba(203, 161, 53, 1), 0 0 25px rgba(203, 161, 53, 0.6)',
+                      ? '0 0 8px rgba(109, 203, 244, 0.6)'
+                      : '0 0 15px rgba(109, 203, 244, 1), 0 0 25px rgba(109, 203, 244, 0.6)',
                   }}
                 />
               ))}
@@ -77,7 +77,7 @@ const CombatVisuals: React.FC<Props> = ({ effects }) => {
                   animationDuration: isCrafting ? '1.5s' : '2.5s',
                   background: isCrafting
                     ? 'radial-gradient(circle, rgba(92, 148, 110, 0.3) 0%, transparent 70%)'
-                    : 'radial-gradient(circle, rgba(203, 161, 53, 0.4) 0%, rgba(92, 148, 110, 0.3) 50%, transparent 70%)',
+                    : 'radial-gradient(circle, rgba(109, 203, 244, 0.4) 0%, rgba(92, 148, 110, 0.3) 50%, transparent 70%)',
                 }}
               />
               {/* 成功时的光晕效果 */}

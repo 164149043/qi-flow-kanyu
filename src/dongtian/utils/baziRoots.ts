@@ -5,7 +5,7 @@
  * 权重：四天干各 1 分 + 四地支本气各 1 分（共 8 分）；
  * 映射：share × 45，clamp 3~40（缺项给 3 分底，纯盘最高 40 可出天灵根）。
  */
-import { Solar } from 'lunar-javascript';
+import { Solar, Lunar, LunarYear } from 'lunar-javascript';
 import type { PlayerStats } from '../types';
 
 type Wuxing = keyof PlayerStats['spiritualRoots'];
@@ -34,11 +34,13 @@ export function readBaziRoots(
   year: number,
   month: number,
   day: number,
-  hour: number
+  hour: number,
+  calendar: 'solar' | 'lunar' = 'solar'
 ): BaziReading | null {
   try {
-    const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
-    const ec = solar.getLunar().getEightChar();
+    const ec = calendar === 'lunar'
+      ? Lunar.fromYmdHms(year, month, day, hour, 0, 0).getEightChar()   // 农历入参（闰月用负月号）
+      : Solar.fromYmdHms(year, month, day, hour, 0, 0).getLunar().getEightChar();
     const gans = [ec.getYearGan(), ec.getMonthGan(), ec.getDayGan(), ec.getTimeGan()];
     const zhis = [ec.getYearZhi(), ec.getMonthZhi(), ec.getDayZhi(), ec.getTimeZhi()];
 
@@ -60,6 +62,31 @@ export function readBaziRoots(
   } catch {
     return null;
   }
+}
+
+/** 农历月名（下标 0 = 正月） */
+export const LUNAR_MONTH_NAMES = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
+/** 农历日名（下标 0 = 初一） */
+export const LUNAR_DAY_NAMES = [
+  '初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+  '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+  '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十',
+];
+
+/** 某农历年的月下拉选项：正月~腊月 + 该年闰月插位（lunar-javascript 负月号表示闰月） */
+export function getLunarMonthOptions(year: number): { label: string; value: number }[] {
+  const opts: { label: string; value: number }[] = [];
+  let leap = 0;
+  try {
+    leap = LunarYear.fromYear(year).getLeapMonth();
+  } catch {
+    leap = 0;
+  }
+  for (let m = 1; m <= 12; m++) {
+    opts.push({ label: LUNAR_MONTH_NAMES[m - 1], value: m });
+    if (leap === m) opts.push({ label: `闰${LUNAR_MONTH_NAMES[m - 1]}`, value: -m });
+  }
+  return opts;
 }
 
 /** 十二时辰选项（取时辰中点小时排盘，规避晚子时跨日歧义） */

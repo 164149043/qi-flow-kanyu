@@ -2,9 +2,20 @@
 @config "./tailwind.config.js";
 
 body {
-  font-family: 'Noto Serif SC', serif;
-  background-color: #1c1c1a;
-  color: #e6e6dc;
+  font-family: KaiTi, STKaiti, 楷体, 'Noto Serif SC', serif;
+  background-color: #05070d;
+  /* 夜空洞天：纯黑底上洒一把固定星尘（与主站星空门户同血统） */
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(232, 240, 254, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 12%, rgba(232, 240, 254, 0.35) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 55% 32%, rgba(109, 203, 244, 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 58%, rgba(232, 240, 254, 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 25% 72%, rgba(109, 203, 244, 0.3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 66% 86%, rgba(248, 121, 21, 0.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 92%, rgba(232, 240, 254, 0.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 42% 55%, rgba(232, 240, 254, 0.25) 50%, transparent 51%);
+  background-attachment: fixed;
+  color: #dde6f2;
   height: 100vh;
   height: 100dvh; /* 使用动态视口高度，移动端更准确 */
   width: 100vw;
@@ -66,31 +77,31 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(28, 28, 26, 0.5);
+  background: rgba(13, 20, 32, 0.5);
   border-radius: 5px;
-  border: 1px solid rgba(203, 161, 53, 0.1);
+  border: 1px solid rgba(109, 203, 244, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #cba135 0%, #8a6d2f 100%);
+  background: linear-gradient(180deg, #6DCBF4 0%, #3e7ba3 100%);
   border-radius: 5px;
-  border: 1px solid rgba(203, 161, 53, 0.3);
+  border: 1px solid rgba(109, 203, 244, 0.3);
   transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #d4ad47 0%, #9a7d3f 100%);
-  box-shadow: 0 0 8px rgba(203, 161, 53, 0.5);
+  background: linear-gradient(180deg, #8dd4f7 0%, #4d8db5 100%);
+  box-shadow: 0 0 8px rgba(109, 203, 244, 0.5);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, #b89530 0%, #7a5d2a 100%);
+  background: linear-gradient(180deg, #5fb4e3 0%, #356a90 100%);
 }
 
 /* Firefox 浏览器 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cba135 rgba(28, 28, 26, 0.5);
+  scrollbar-color: #6DCBF4 rgba(13, 20, 32, 0.5);
 }
 
 /* 隐藏滚动条的工具类 */
@@ -102,7 +113,7 @@ body {
 .modal-scroll-container {
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #cba135 rgba(28, 28, 26, 0.5);
+  scrollbar-color: #6DCBF4 rgba(13, 20, 32, 0.5);
   max-height: 80vh;
 }
 
@@ -111,19 +122,19 @@ body {
 }
 
 .modal-scroll-container::-webkit-scrollbar-track {
-  background: rgba(28, 28, 26, 0.3);
+  background: rgba(13, 20, 32, 0.3);
   border-radius: 4px;
   margin: 4px 0;
 }
 
 .modal-scroll-container::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #cba135 0%, #8a6d2f 100%);
+  background: linear-gradient(180deg, #6DCBF4 0%, #3e7ba3 100%);
   border-radius: 4px;
-  border: 1px solid rgba(203, 161, 53, 0.3);
+  border: 1px solid rgba(109, 203, 244, 0.3);
 }
 
 .modal-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #d4ad47 0%, #9a7d3f 100%);
+  background: linear-gradient(180deg, #8dd4f7 0%, #4d8db5 100%);
 }
 
 /* 弹窗结构优化 */
@@ -132,7 +143,7 @@ body {
   top: 0;
   background: inherit;
   z-index: 10;
-  border-bottom: 1px solid rgba(203, 161, 53, 0.2);
+  border-bottom: 1px solid rgba(109, 203, 244, 0.2);
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
 }

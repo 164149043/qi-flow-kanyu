@@ -34,7 +34,7 @@ export const getRarityNameClasses = (rarity: ItemRarity | undefined): string => 
     case '仙品':
       return (
         base +
-        'text-stone-300 hover:text-mystic-gold hover:drop-shadow-[0_0_8px_rgba(203,161,53,0.5)]'
+        'text-stone-300 hover:text-mystic-gold hover:drop-shadow-[0_0_8px_rgba(109,203,244,0.5)]'
       );
     default:
       return base + 'text-stone-300 hover:text-stone-100';

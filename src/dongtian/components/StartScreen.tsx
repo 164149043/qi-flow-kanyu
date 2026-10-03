@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { showError } from '../utils/toastUtils';
 import { rollSpiritualRoots } from '../utils/playerUtils';
-import { readBaziRoots, HOUR_OPTIONS, ROOT_ATTRIBUTE_HINT, type BaziReading } from '../utils/baziRoots';
+import { readBaziRoots, HOUR_OPTIONS, ROOT_ATTRIBUTE_HINT, LUNAR_DAY_NAMES, getLunarMonthOptions, type BaziReading } from '../utils/baziRoots';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveGameData,
@@ -86,6 +86,10 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
   const [spiritualRoots, setSpiritualRoots] = useState<PlayerStats['spiritualRoots']>(() => rollSpiritualRoots());
   const [birthDate, setBirthDate] = useState('');
   const [birthHour, setBirthHour] = useState('12');
+  const [calendarType, setCalendarType] = useState<'solar' | 'lunar'>('solar');
+  const [lunarYear, setLunarYear] = useState('2000');
+  const [lunarMonth, setLunarMonth] = useState('1');
+  const [lunarDay, setLunarDay] = useState('1');
   const [baziReading, setBaziReading] = useState<BaziReading | null>(null);
 
   // 改命：重掷道号与五行灵根
@@ -95,14 +99,24 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
     setBaziReading(null);
   };
 
-  // 生辰定命：按四柱排盘确定灵根（同八字同命，确定性映射）
+  // 生辰定命：按四柱排盘确定灵根（同八字同命，确定性映射；支持阳历/农历）
   const handleBaziRoll = () => {
-    if (!birthDate) {
-      showError('请先选择出生日期');
-      return;
+    let reading: BaziReading | null = null;
+    if (calendarType === 'solar') {
+      if (!birthDate) {
+        showError('请先选择出生日期');
+        return;
+      }
+      const [y, m, d] = birthDate.split('-').map(Number);
+      reading = readBaziRoots(y, m, d, Number(birthHour), 'solar');
+    } else {
+      const y = parseInt(lunarYear, 10);
+      if (!y || y < 1900 || y > 2100) {
+        showError('请输入 1900~2100 的农历年份');
+        return;
+      }
+      reading = readBaziRoots(y, Number(lunarMonth), Number(lunarDay), Number(birthHour), 'lunar');
     }
-    const [y, m, d] = birthDate.split('-').map(Number);
-    const reading = readBaziRoots(y, m, d, Number(birthHour));
     if (!reading) {
       showError('排盘失败，请检查出生日期');
       return;
@@ -437,17 +451,67 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
                       {getRootGradeLabel(spiritualRoots)}
                     </span>
                   </div>
-                  {/* 生辰定命（四柱排盘） */}
+                  {/* 生辰定命（四柱排盘，支持阳历/农历） */}
                   <div className="mb-3 p-2.5 bg-stone-900/60 border border-stone-700/70 rounded">
-                    <div className="text-[11px] text-stone-500 mb-2">以生辰定命 · 四柱排盘定灵根</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[11px] text-stone-500">以生辰定命 · 四柱排盘定灵根</div>
+                      <div className="flex rounded overflow-hidden border border-stone-600 text-[11px]">
+                        {(['solar', 'lunar'] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setCalendarType(t)}
+                            className={`px-2.5 py-1 transition-colors ${
+                              calendarType === t
+                                ? 'bg-mystic-jade/40 text-stone-100 font-semibold'
+                                : 'bg-stone-800 text-stone-500 hover:text-stone-300'
+                            }`}
+                          >
+                            {t === 'solar' ? '阳历' : '农历'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="date"
-                        value={birthDate}
-                        onChange={(e) => setBirthDate(e.target.value)}
-                        max="2026-12-31"
-                        className="flex-1 px-2.5 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
-                      />
+                      {calendarType === 'solar' ? (
+                        <input
+                          type="date"
+                          value={birthDate}
+                          onChange={(e) => setBirthDate(e.target.value)}
+                          max="2026-12-31"
+                          className="flex-1 px-2.5 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
+                        />
+                      ) : (
+                        <div className="flex-1 flex gap-1.5">
+                          <input
+                            type="number"
+                            value={lunarYear}
+                            onChange={(e) => setLunarYear(e.target.value)}
+                            min={1900}
+                            max={2100}
+                            placeholder="年份"
+                            className="w-[4.5rem] px-2 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade tabular-nums"
+                          />
+                          <select
+                            value={lunarMonth}
+                            onChange={(e) => setLunarMonth(e.target.value)}
+                            className="flex-1 px-1.5 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
+                          >
+                            {getLunarMonthOptions(parseInt(lunarYear, 10) || 2000).map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={lunarDay}
+                            onChange={(e) => setLunarDay(e.target.value)}
+                            className="flex-1 px-1.5 py-2 bg-stone-700 border border-stone-600 rounded text-sm text-stone-200 focus:outline-none focus:border-mystic-jade"
+                          >
+                            {LUNAR_DAY_NAMES.map((name, i) => (
+                              <option key={name} value={i + 1}>{name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <select
                         value={birthHour}
                         onChange={(e) => setBirthHour(e.target.value)}
@@ -469,7 +533,7 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
                       <div className="mt-2 text-xs text-stone-400">
                         四柱 <span className="text-stone-200 font-semibold tracking-widest">{baziReading.pillars.join(' ')}</span>
                         {' '}· 日主 <span className="text-stone-200">{baziReading.dayGan}</span>
-                        {' '}· 灵根已按此命盘落定
+                        {' '}· 灵根已按此命盘落定（{calendarType === 'solar' ? '阳历盘' : '农历盘'}）
                       </div>
                     )}
                   </div>

@@ -807,7 +807,7 @@ const CultivationModal: React.FC<Props> = ({
                 key={art.id}
                 className={`
                   relative p-4 rounded border transition-colors flex flex-col sm:flex-row justify-between gap-4
-                  ${isActive ? 'bg-ink-800 border-mystic-gold shadow-[0_0_10px_rgba(203,161,53,0.1)]' : 'bg-ink-800 border-stone-700'}
+                  ${isActive ? 'bg-ink-800 border-mystic-gold shadow-[0_0_10px_rgba(109,203,244,0.1)]' : 'bg-ink-800 border-stone-700'}
                   ${locked ? 'opacity-60 grayscale' : ''}
                 `}
               >

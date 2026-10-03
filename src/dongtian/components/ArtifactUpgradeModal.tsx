@@ -636,7 +636,7 @@ const ArtifactUpgradeModal: React.FC<Props> = ({
           className={`
             w-full py-3 rounded font-serif font-bold text-lg transition-all relative overflow-hidden
             ${canAfford && !isUpgrading
-              ? 'bg-mystic-gold/20 text-mystic-gold hover:bg-mystic-gold/30 border border-mystic-gold shadow-[0_0_15px_rgba(203,161,53,0.3)]'
+              ? 'bg-mystic-gold/20 text-mystic-gold hover:bg-mystic-gold/30 border border-mystic-gold shadow-[0_0_15px_rgba(109,203,244,0.3)]'
               : 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'}
           `}
         >
