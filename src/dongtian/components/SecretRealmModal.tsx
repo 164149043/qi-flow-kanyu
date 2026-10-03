@@ -1,0 +1,258 @@
+import React, { useState, useMemo } from 'react';
+import { PlayerStats, RealmType, SecretRealm } from '../types';
+import { REALM_ORDER, SECRET_REALMS } from '../constants/index';
+import { generateRandomRealms } from '../services/randomService';
+import { Mountain, Gem, Ticket, RefreshCw, Map, Flame, Zap, Compass, Crown } from 'lucide-react';
+import { Modal } from './common';
+import { useUIStore } from '../store/uiStore';
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+  player: PlayerStats;
+  onEnter: (realm: SecretRealm) => void;
+}
+
+const SecretRealmModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  player,
+  onEnter,
+}) => {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [realmTab, setRealmTab] = useState<'random' | 'fixed'>('random');
+
+  // 使用 useMemo 生成随机秘境列表，refreshKey 变化时重新生成
+  const availableRealms = useMemo(() => {
+    if (realmTab === 'fixed') return [];
+    return generateRandomRealms(player.realm, 6);
+  }, [player.realm, refreshKey, realmTab]);
+
+  const today = new Date().toISOString().split('T')[0];
+  const isFirstClear = (realm: SecretRealm) =>
+    player.dailyRealmFirstClears?.[realm.id] !== today;
+
+  const getRealmIndex = (r: RealmType) => REALM_ORDER.indexOf(r);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="秘境探索"
+      titleIcon={<Mountain size={18} className="md:w-5 md:h-5 text-purple-300" />}
+      titleExtra={
+        <button
+          onClick={handleRefresh}
+          className="px-3 py-1.5 bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 border border-purple-700 rounded text-sm flex items-center gap-1.5 transition-colors min-h-[44px] md:min-h-0 touch-manipulation"
+          title="刷新秘境列表"
+        >
+          <RefreshCw size={16} />
+          <span className="hidden md:inline">刷新</span>
+        </button>
+      }
+      size="4xl"
+      height="xl"
+      containerClassName="md:border-purple-900 md:shadow-[0_0_30px_rgba(147,51,234,0.3)]"
+      headerClassName="bg-purple-900/20 border-purple-900"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        {/* 九天通天塔 与 地宫探索 双大入口 */}
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* 九天通天塔入口 */}
+          <div
+            className="bg-linear-to-r from-amber-950/70 to-red-950/60 border-2 border-amber-600/70 rounded-lg p-3.5 cursor-pointer hover:border-amber-400 hover:shadow-lg hover:shadow-amber-950/40 transition-all"
+            onClick={() => {
+              const setModal = useUIStore.getState().setModal;
+              setModal('isTowerOpen', true);
+              setModal('isRealmOpen', false);
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Flame size={26} className="text-amber-400 animate-pulse" />
+              <div>
+                <h4 className="text-amber-300 font-serif font-bold text-sm md:text-base flex items-center gap-1.5">
+                  <Zap size={16} className="text-amber-400" />
+                  九天通天塔
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/80 text-amber-200 border border-amber-600 rounded">
+                    第 {player.tower?.highestFloor || 0} / 100 层
+                  </span>
+                </h4>
+                <p className="text-stone-400 text-xs mt-0.5">
+                  百重试炼 · 战力淬道 · 太虚洗炼石 · 每日扫荡
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 地宫探索入口 */}
+          <div
+            className="bg-linear-to-r from-purple-900/40 to-stone-900/60 border-2 border-purple-700/60 rounded-lg p-3.5 cursor-pointer hover:border-purple-400 hover:shadow-lg hover:shadow-purple-950/40 transition-all"
+            onClick={() => {
+              const setModal = useUIStore.getState().setModal;
+              setModal('isDungeonOpen', true);
+              setModal('isRealmOpen', false);
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Map size={26} className="text-purple-300" />
+              <div>
+                <h4 className="text-purple-300 font-serif font-bold text-sm md:text-base flex items-center gap-1.5">
+                  <Compass size={16} className="text-purple-300" />
+                  秘境 Roguelike 探索
+                </h4>
+                <p className="text-stone-400 text-xs mt-0.5">
+                  多层地宫 · 3选1路径 · 随机机缘 · 随时结算
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 名境 / 奇境切换 */}
+        <div className="col-span-full flex gap-2">
+          <button
+            onClick={() => setRealmTab('random')}
+            className={`flex-1 py-2 rounded font-serif text-sm border transition-colors ${
+              realmTab === 'random'
+                ? 'bg-purple-900/40 text-purple-200 border-purple-600'
+                : 'bg-stone-900/60 text-stone-400 border-stone-700 hover:text-stone-200'
+            }`}
+          >
+            <Map size={14} className="inline mr-1.5 -mt-0.5" />
+            奇境探索（随机刷新）
+          </button>
+          <button
+            onClick={() => setRealmTab('fixed')}
+            className={`flex-1 py-2 rounded font-serif text-sm border transition-colors ${
+              realmTab === 'fixed'
+                ? 'bg-amber-900/40 text-amber-200 border-amber-600'
+                : 'bg-stone-900/60 text-stone-400 border-stone-700 hover:text-stone-200'
+            }`}
+          >
+            <Crown size={14} className="inline mr-1.5 -mt-0.5" />
+            天地名境（每日首通有礼）
+          </button>
+        </div>
+
+        {(realmTab === 'fixed' ? SECRET_REALMS : availableRealms).map((realm) => {
+          const playerRealmIndex = getRealmIndex(player.realm);
+          const reqRealmIndex = getRealmIndex(realm.minRealm);
+          const isRealmEnough = playerRealmIndex >= reqRealmIndex;
+          const canAfford = player.spiritStones >= realm.cost;
+          const locked = !isRealmEnough;
+
+          return (
+            <div
+              key={realm.id}
+              className={`
+                relative border flex flex-col p-5 rounded-lg transition-all duration-300 group
+                ${
+                  locked
+                    ? 'bg-ink-900 border-stone-800 opacity-60'
+                    : 'bg-ink-800 border-purple-800 hover:border-purple-500 hover:bg-ink-800/80 hover:shadow-lg hover:shadow-purple-900/20'
+                }
+              `}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <h4
+                  className={`text-xl font-serif font-bold ${locked ? 'text-stone-500' : 'text-purple-200 group-hover:text-purple-100'}`}
+                >
+                  {realm.name}
+                </h4>
+                <span
+                  className={`
+                  text-xs px-2 py-0.5 rounded border
+                  ${
+                    realm.riskLevel === '极度危险'
+                      ? 'text-red-500 border-red-900 bg-red-900/20'
+                      : realm.riskLevel === '高'
+                        ? 'text-orange-400 border-orange-900 bg-orange-900/20'
+                        : 'text-yellow-400 border-yellow-900 bg-yellow-900/20'
+                  }
+                `}
+                >
+                  {realm.riskLevel}风险
+                </span>
+              </div>
+
+              <p className="text-sm text-stone-500 mb-4 h-12">
+                {realm.description}
+              </p>
+
+              <div className="bg-ink-900/50 p-3 rounded border border-stone-800 mb-4 flex-1">
+                <div className="text-xs text-stone-500 mb-2 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Gem size={12} /> 可能掉落
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {realm.drops.map((drop, i) => (
+                    <span
+                      key={i}
+                      className="text-xs text-purple-300/80 bg-purple-900/20 px-1.5 py-0.5 rounded"
+                    >
+                      {drop}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-auto space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-stone-500">境界要求</span>
+                  <span
+                    className={
+                      isRealmEnough ? 'text-stone-300' : 'text-red-500'
+                    }
+                  >
+                    {realm.minRealm}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-stone-500">门票消耗</span>
+                  <span
+                    className={
+                      canAfford ? 'text-mystic-gold' : 'text-red-500'
+                    }
+                  >
+                    {realm.cost} 灵石
+                  </span>
+                </div>
+                {realmTab === 'fixed' && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-stone-500">今日首通</span>
+                    {isFirstClear(realm) ? (
+                      <span className="text-emerald-400">待探索（返门票+必得主题宝物）</span>
+                    ) : (
+                      <span className="text-stone-500">已完成（50% 主题宝物）</span>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => onEnter(realm)}
+                  disabled={locked || !canAfford}
+                  className={`
+                     w-full py-2.5 rounded font-serif font-bold text-sm flex items-center justify-center gap-2 mt-4 transition-all
+                     ${
+                       locked || !canAfford
+                         ? 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'
+                         : 'bg-purple-900/40 text-purple-300 border border-purple-700 hover:bg-purple-800/60 hover:text-white hover:border-purple-500'
+                     }
+                   `}
+                >
+                  {locked ? '境界不足' : !canAfford ? '灵石不足' : '进入秘境'}
+                  {!locked && canAfford && <Ticket size={16} />}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+};
+
+export default SecretRealmModal;

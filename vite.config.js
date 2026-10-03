@@ -1,39 +1,37 @@
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
+import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // 老子的配置：dev 阶段不挂 singlefile（它是 build 内联用的，dev 挂上纯添乱）
 // build 阶段才启用 singlefile 把一切内联成单文件（复刻原站 418KB 交付）
 //
-// 三入口（index=星空门户 / qiliu=炁流3D / kanyu=堪舆）——singlefile 官方不支持多入口（wontfix, issue #51），
-// 所以跑三次独立构建（npm run build 串联），每次单入口各产一个单文件：
-//   vite build                → dist/index.html（第一次，清空 dist；不带 --mode 时 mode='production'）
-//   vite build --mode kanyu   → dist/kanyu.html（第二三次 emptyOutDir:false 别删前面产物）
-//   vite build --mode qiliu   → dist/qiliu.html
+// 五入口（index=星空门户 / qiliu=炁流3D / kanyu=堪舆 / mingli=命理 / dongtian=洞天）——
+// singlefile 官方不支持多入口（wontfix, issue #51），所以跑五次独立构建（npm run build 串联），
+// 每次单入口各产一个单文件：
+//   vite build                 → dist/index.html（第一次，清空 dist；不带 --mode 时 mode='production'）
+//   vite build --mode kanyu    → dist/kanyu.html（后几次 emptyOutDir:false 别删前面产物）
+//   vite build --mode qiliu    → dist/qiliu.html
+//   vite build --mode mingli   → dist/mingli.html
+//   vite build --mode dongtian → dist/dongtian.html（多文件产物）
 // dev 无 singlefile，/ 与 /qiliu.html、/kanyu.html 直接按路径访问，input 配置无所谓但留着没坏处。
 //
-// 炼炁（lianqi，文字修真游戏，2026-09 接入）：第五入口。
-//   - vue() 插件全局挂无副作用（主项目四入口纯原生 JS，无 .vue 文件）
-//   - 豁免 singlefile：游戏素材 import.meta.glob 走 hash 资产管线，体量不适合单文件内联
-//   - alias '@' → src/lianqi（游戏代码内全是 @/ 引用，全锁在子树内不与主项目 src 冲突）
-//   - 路由 createWebHashHistory，与 MPA 子路径 /lianqi.html 天然兼容，零改动
-const lianqiDir = fileURLToPath(new URL('./src/lianqi', import.meta.url));
+// 洞天（dongtian，文字修仙游戏，2026-10 接入，基于开源 react-xiuxian-game 改造）：
+//   - react() 插件全局挂无副作用（主项目四入口纯原生 JS，无 .tsx 文件）
+//   - 豁免 singlefile：19 个 lazy 弹窗走 hash 资产管线，体量不适合单文件内联
+//   - 源码内全相对导入（无 @ 别名），整树锁在 src/dongtian 子树内不与主项目冲突
+//   - 剥离了原项目的账号/云存档/排行榜/人物志/聊天/联机市场等网络层，纯本地单机
 export default defineConfig(({ command, mode }) => ({
-  // base 相对路径：四单文件入口全内联无感；lianqi 多文件产物（js/css/png 引用）必须相对，
-  // 否则部署到 GitHub Pages 子路径（user.github.io/repo/）会 404。dev 下 './' 等价 '/'。
+  // base 相对路径：四单文件入口全内联无感；dongtian 多文件产物（js/css/字体引用）必须相对，
+  // 部署到 Vercel / GitHub Pages 子路径都不 404。dev 下 './' 等价 '/'。
   base: './',
-  plugins: [vue(), ...(command === 'build' && mode !== 'lianqi' ? [viteSingleFile()] : [])],
-  resolve: {
-    alias: { '@': lianqiDir }
-  },
+  plugins: [react(), ...(command === 'build' && mode !== 'dongtian' ? [viteSingleFile()] : [])],
   worker: {
     format: 'es'
   },
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 1000,
-    emptyOutDir: mode === 'production',   // 仅第一次构建清空 dist；kanyu/qiliu 阶段绝不能清
+    emptyOutDir: mode === 'production',   // 仅第一次构建清空 dist；kanyu/qiliu/mingli 阶段绝不能清
     // 自定义 mode 下 vite 会把 process.env.NODE_ENV 替换成 'development'——钉回 production 封死漂移
     // （three/lunar 无 NODE_ENV 分支，@vercel/analytics 有 dev 警告分支，钉住只赚不亏）
     ...(command === 'build' ? { define: { 'process.env.NODE_ENV': '"production"' } } : {}),
@@ -41,7 +39,7 @@ export default defineConfig(({ command, mode }) => ({
       input: mode === 'kanyu' ? { kanyu: 'kanyu.html' }
            : mode === 'qiliu' ? { qiliu: 'qiliu.html' }
            : mode === 'mingli' ? { mingli: 'mingli.html' }
-           : mode === 'lianqi' ? { lianqi: 'lianqi.html' }
+           : mode === 'dongtian' ? { dongtian: 'dongtian.html' }
            : { main: 'index.html' },
     },
   },

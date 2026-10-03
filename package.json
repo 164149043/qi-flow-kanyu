@@ -5,29 +5,30 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --mode kanyu && vite build --mode qiliu && vite build --mode mingli && vite build --mode lianqi",
+    "build": "vite build && vite build --mode kanyu && vite build --mode qiliu && vite build --mode mingli && vite build --mode dongtian",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@element-plus/icons-vue": "^2.3.2",
     "@vercel/analytics": "^2.0.1",
-    "crypto-js": "^4.1.1",
-    "element-plus": "^2.14.6",
+    "dayjs": "^1.11.19",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "lucide-react": "^0.554.0",
     "lunar-javascript": "^1.6.12",
-    "pinia": "^4.0.3",
-    "pinia-plugin-persistedstate": "^4.7.1",
-    "pixi.js": "^8.21.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "three": "0.144.0",
-    "vue": "^3.5.43",
-    "vue-router": "^4.6.4"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.1.17",
     "vite": "^5.4.10",
     "vite-plugin-singlefile": "^2.0.3",
     "vitest": "^1.6.1"
