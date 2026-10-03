@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { DifficultyMode, TalentCategory, FATE_POINTS_TOTAL } from '../types';
+import { DifficultyMode, TalentCategory, FATE_POINTS_TOTAL, PlayerStats } from '../types';
 import { TALENTS } from '../constants/index';
 import {
   Sparkles,
@@ -9,8 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Dices,
 } from 'lucide-react';
 import { showError } from '../utils/toastUtils';
+import { rollSpiritualRoots } from '../utils/playerUtils';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveGameData,
@@ -35,17 +37,58 @@ const STEPS = [
   { label: '难度', icon: TriangleAlert },
 ] as const;
 
+// 随机道号池：姓氏/名字用字/道号后缀
+const DAO_SURNAMES = ['李', '王', '张', '刘', '陈', '杨', '赵', '周', '吴', '林', '慕', '叶', '楚', '萧', '云', '洛', '秦', '宋'];
+const DAO_GIVEN = ['玄', '尘', '青', '云', '霜', '雪', '霄', '辰', '渊', '澜', '岫', '岚', '曜', '衡', '珩', '昭', '晏', '清', '墨', '寒', '觉', '孤', '鸿', '明'];
+const DAO_TITLES = ['子', '道人', '真人', '散人', '居士'];
+
+const generateRandomDaoName = () => {
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  return Math.random() < 0.4
+    ? `${pick(DAO_GIVEN)}${pick(DAO_GIVEN)}${pick(DAO_TITLES)}` // 道号式：玄尘子
+    : `${pick(DAO_SURNAMES)}${pick(DAO_GIVEN)}${pick(DAO_GIVEN)}`; // 姓名式：慕玄尘
+};
+
+// 灵根展示配置（与 StatsPanel 同款色板）
+const ROOT_NAMES: Record<keyof PlayerStats['spiritualRoots'], string> = {
+  metal: '金', wood: '木', water: '水', fire: '火', earth: '土',
+};
+const ROOT_TEXT_COLORS: Record<keyof PlayerStats['spiritualRoots'], string> = {
+  metal: 'text-yellow-400', wood: 'text-green-400', water: 'text-blue-400',
+  fire: 'text-red-400', earth: 'text-amber-600',
+};
+const ROOT_BAR_COLORS: Record<keyof PlayerStats['spiritualRoots'], string> = {
+  metal: 'bg-yellow-400', wood: 'bg-green-400', water: 'bg-blue-400',
+  fire: 'bg-red-400', earth: 'bg-amber-600',
+};
+
+/** 灵根品阶：最高根 ≥30 天灵根；前两根 ≥15 地灵根；否则杂灵根 */
+const getRootGradeLabel = (roots: PlayerStats['spiritualRoots']): string => {
+  const values = Object.values(roots).sort((a, b) => b - a);
+  if (values[0] >= 30) return '天灵根';
+  if (values[0] >= 15 && values[1] >= 15) return '地灵根';
+  return '杂灵根';
+};
+
 interface Props {
   onStart: (
     playerName: string,
     talentIds: string[],
-    difficulty: DifficultyMode
+    difficulty: DifficultyMode,
+    spiritualRoots?: PlayerStats['spiritualRoots']
   ) => void;
 }
 
 const StartScreen: React.FC<Props> = ({ onStart }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [playerName, setPlayerName] = useState('');
+  const [spiritualRoots, setSpiritualRoots] = useState<PlayerStats['spiritualRoots']>(() => rollSpiritualRoots());
+
+  // 改命：重掷道号与五行灵根
+  const handleReRollFate = () => {
+    setPlayerName(generateRandomDaoName());
+    setSpiritualRoots(rollSpiritualRoots());
+  };
   const [selectedTalentIds, setSelectedTalentIds] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<TalentCategory | '全部'>('全部');
   const [difficulty, setDifficulty] = useState<DifficultyMode>(() => {
@@ -150,7 +193,7 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
       showError('请至少选择一个天赋，或使用随机分配！');
       return;
     }
-    onStart(playerName.trim(), selectedTalentIds, difficulty);
+    onStart(playerName.trim(), selectedTalentIds, difficulty, spiritualRoots);
   };
 
   const handleImportSave = async (
@@ -353,6 +396,57 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
                 <p className="text-xs text-stone-500 mt-3 text-center">
                   道号将伴随你在修仙世界的一生，请谨慎取名
                 </p>
+
+                {/* 命格 · 五行灵根（改命） */}
+                <div className="mt-5 p-3 md:p-4 bg-stone-800/60 border border-stone-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-stone-300 flex items-center gap-1.5">
+                      <Sparkles size={15} className="text-mystic-gold" />
+                      命格 · 五行灵根
+                    </span>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded border ${
+                        getRootGradeLabel(spiritualRoots) === '天灵根'
+                          ? 'text-yellow-300 border-yellow-500/60 bg-yellow-500/10'
+                          : getRootGradeLabel(spiritualRoots) === '地灵根'
+                            ? 'text-emerald-300 border-emerald-500/60 bg-emerald-500/10'
+                            : 'text-stone-400 border-stone-600 bg-stone-700/40'
+                      }`}
+                    >
+                      {getRootGradeLabel(spiritualRoots)}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 mb-3">
+                    {(['metal', 'wood', 'water', 'fire', 'earth'] as const).map((root) => {
+                      const value = spiritualRoots[root];
+                      return (
+                        <div key={root} className="flex items-center gap-2">
+                          <span className={`w-5 text-xs font-bold text-center ${ROOT_TEXT_COLORS[root]}`}>
+                            {ROOT_NAMES[root]}
+                          </span>
+                          <div className="flex-1 h-2 bg-stone-900 rounded-full overflow-hidden border border-stone-700/60">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${ROOT_BAR_COLORS[root]}`}
+                              style={{ width: `${Math.min(100, (value / 40) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="w-6 text-right text-xs text-stone-400 tabular-nums">{value}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleReRollFate}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-mystic-jade/20 hover:bg-mystic-jade/30 border border-mystic-jade/50 hover:border-mystic-jade rounded text-stone-200 font-semibold transition-all active:scale-[0.98] touch-manipulation"
+                  >
+                    <Dices size={18} />
+                    改命 · 重掷道号与五行
+                  </button>
+                  <p className="text-[11px] text-stone-500 mt-2 text-center">
+                    灵根影响修炼速度、突破成功率与功法加成；不满意道号也可单独修改
+                  </p>
+                </div>
               </div>
             </div>
           )}

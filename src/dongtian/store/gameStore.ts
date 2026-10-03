@@ -92,7 +92,8 @@ interface GameState {
   startNewGame: (
     playerName: string,
     talentIds: string[],
-    difficulty: GameSettings['difficulty']
+    difficulty: GameSettings['difficulty'],
+    spiritualRoots?: PlayerStats['spiritualRoots']
   ) => void;
 }
 
@@ -272,14 +273,14 @@ export const useGameStore = create<GameState>()(
     },
 
     // 开始新游戏
-    startNewGame: (playerName, talentIds, difficulty) => {
+    startNewGame: (playerName, talentIds, difficulty, spiritualRoots) => {
       const state = get();
 
       // 重新生成事件模板库
       initializeEventTemplateLibrary(true);
       console.log('开始新游戏时重新生成事件模板库');
 
-      const newPlayer = createInitialPlayer(playerName, talentIds);
+      const newPlayer = createInitialPlayer(playerName, talentIds, spiritualRoots);
       const selectedTalents = talentIds
         .map((id) => TALENTS.find((t) => t.id === id))
         .filter(Boolean);

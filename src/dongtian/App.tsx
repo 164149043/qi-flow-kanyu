@@ -7,6 +7,7 @@ import React, {
 import {
   TribulationState,
   GameSettings,
+  PlayerStats,
 } from './types';
 import WelcomeScreen from './components/WelcomeScreen';
 import StartScreen from './components/StartScreen';
@@ -430,9 +431,10 @@ function App() {
   const handleStartGame = useCallback((
     playerName: string,
     talentIds: string[],
-    difficulty: GameSettings['difficulty']
+    difficulty: GameSettings['difficulty'],
+    spiritualRoots?: PlayerStats['spiritualRoots']
   ) => {
-    startNewGame(playerName, talentIds, difficulty);
+    startNewGame(playerName, talentIds, difficulty, spiritualRoots);
   }, [startNewGame]);
 
   // ========== 渲染逻辑 ==========
