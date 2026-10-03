@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Sparkles, Play, Upload } from 'lucide-react';
+import { Sparkles, Play, Upload, ChevronLeft } from 'lucide-react';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveGameData,
@@ -98,6 +98,16 @@ const WelcomeScreen: React.FC<Props> = ({ hasSave, onStart, onContinue }) => {
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(109,203,244,0.1),transparent_70%)]" />
       </div>
+
+      {/* 左上角：返回星空门户 */}
+      <a
+        href="index.html"
+        className="absolute top-4 left-4 z-20 flex items-center gap-1 px-3 py-2 bg-stone-800/90 hover:bg-stone-700 border border-stone-600 rounded-lg text-stone-300 hover:text-mystic-gold text-sm transition-colors shadow-lg touch-manipulation"
+        title="返回星空门户"
+      >
+        <ChevronLeft size={16} />
+        返回
+      </a>
 
       {/* 主要内容区域 */}
       <div className="relative z-10 flex flex-col items-center justify-center w-full h-full p-3 sm:p-4 md:p-6 lg:p-8">

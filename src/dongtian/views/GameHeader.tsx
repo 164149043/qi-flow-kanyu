@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
+  ChevronLeft,
   BookOpen,
   Backpack,
   Star,
@@ -191,6 +192,21 @@ function GameHeader({
   return (
     <header className="bg-paper-800 p-2 md:p-4 border-b border-stone-700 flex justify-between items-center shadow-lg z-50 fixed top-0 left-0 right-0 safe-area-header md:static md:w-auto">
       <div className="flex items-center gap-3">
+        {/* 返回星空门户（离开前自动落一档存档） */}
+        <a
+          href="index.html"
+          onClick={() => {
+            try {
+              const s = useGameStore.getState();
+              if (s.player) s.saveGame();
+            } catch { /* 存档失败不拦截返回 */ }
+          }}
+          className="flex items-center gap-1 px-2 py-1.5 text-xs md:text-sm text-stone-400 hover:text-mystic-gold bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded transition-colors touch-manipulation shrink-0"
+          title="返回星空门户"
+        >
+          <ChevronLeft size={14} />
+          <span className="hidden sm:inline">返回</span>
+        </a>
         <h1
           onClick={handleTitleClick}
           className="text-base md:text-xl font-serif text-mystic-gold tracking-widest cursor-pointer select-none hover:opacity-80 transition-opacity"
