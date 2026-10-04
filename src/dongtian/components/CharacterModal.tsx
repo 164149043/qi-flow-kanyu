@@ -1428,6 +1428,37 @@ const CharacterModal: React.FC<Props> = ({
                 </div>
               )}
 
+              {/* 属性说明（机制速查） */}
+              <details className="rounded-lg border border-stone-700 bg-stone-900/60">
+                <summary className="px-4 py-3 text-sm font-bold text-stone-300 cursor-pointer select-none">
+                  属性说明 · 各数值代表什么 ▾
+                </summary>
+                <div className="px-4 pb-4 text-xs leading-relaxed text-stone-400 space-y-3">
+                  <div>
+                    <div className="text-stone-200 font-bold mb-1">战斗六维</div>
+                    <div>· 攻击：伤害基础。伤害 = 攻击 × (1 − 防御/(防御 + 攻击×0.8))，防御=攻击时伤害约剩 1/3；破防技能可无视部分防御</div>
+                    <div>· 防御：按上式减伤，收益递减但永不归零</div>
+                    <div>· 气血：生命上限，归零判负；被动回血每秒 0.25%，打坐时 2~3.5 倍速</div>
+                    <div>· 速度：①先手判定 ②与神识构成行动力（速度权重 0.6）：每比敌方高 50% 行动力，每回合多一次行动（1.5 倍=打 2 下，2 倍=打 3 下）</div>
+                    <div>· 神识：行动力权重 0.4；比敌方高 20% 以上触发开局「震慑」压制</div>
+                    <div>· 体魄：结算时换算为 防御×0.5 + 气血×0.3 的坚韧加成，复合生存属性</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-200 font-bold mb-1">属性点加点效率（每点，随境界翻倍）</div>
+                    <div>· 攻击 +5 · 防御 +3 · 气血 +20 · 神识 +3 · 速度 +2 · 体魄 +3 且额外 +10 气血</div>
+                  </div>
+                  <div>
+                    <div className="text-stone-200 font-bold mb-1">成长与生存</div>
+                    <div>· 修为：经验，满则升层/突破渡劫；溢出进修为泵（容量=需求×20）</div>
+                    <div>· 寿命：随游戏天数流逝，耗尽触发寿终死亡；升境界大幅提升上限</div>
+                    <div>· 灵根（五行）：每点修炼速度 +0.1%、突破 +0.05%、对应功法 +0.5%；另有专属属性加成（金→攻击/防御，木→气血/体魄，水→神识/防御，火→攻击/速度，土→防御/体魄）</div>
+                    <div>· 幸运：提升历练中奇遇类好事件的触发倾向</div>
+                    <div>· 因果：福缘（正）/业障（负），历练事件增减的长期记录</div>
+                  </div>
+                  <div className="text-stone-500">流派速查：堆攻=爆发 · 堆防=磨血 · 速度+神识=多动压制 · 体魄=铁壁续航</div>
+                </div>
+              </details>
+
               {/* 天赋显示（不可修改） */}
               <div>
                 <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
