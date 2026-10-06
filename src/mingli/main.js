@@ -12,6 +12,9 @@ import {
 import { CITY_LON, trueSolarOffset } from './core/truesolar.js';
 import { hePan } from './core/hepan.js';
 import { sourceBlock } from './core/classics.js';
+import { buildAiPrompt, buildHePanPrompt, AI_TOPICS, HE_TOPICS } from './core/aiprompt.js';
+import { buildShareCard, buildHePanCard, cardBlob, cardDataUrl } from './sharecard.js';
+import { liuNianDetail } from './core/liunian.js';
 
 /* 神煞 id → 典籍条目（classics.js 键）；未收录者不显出处块 */
 const SS_CLASSICS = {
@@ -307,6 +310,11 @@ function renderDayun(chart) {
     <div class="dayun-head">
       <h2>大运</h2>
       <span class="dy-start">${chart.dayun.startYear} 年 ${chart.dayun.startMonth} 月起运 · ${male ? '男命' : '女命'}${direction}（${yearYang ? '阳' : '阴'}年生）</span>
+      <div class="dy-lookup" id="dyLookup">
+        <label>查流年</label>
+        <input type="number" id="inLnYear" value="${nowYear}" min="1900" max="2100">
+        <button id="btnLn">详查</button>
+      </div>
     </div>
     <div class="dayun-river">${steps}</div>
   </section>`;
@@ -395,6 +403,185 @@ function renderTishi(chart) {
   }).join('')}
     </div>
   </section>`;
+}
+
+/* ---------- 问 AI（文本/图片/链接三出口，AI 只解读不排盘） ---------- */
+function renderAiAsk() {
+  if (!state.chart) return '';
+  const he = !!state.heResult;
+  const topics = he ? HE_TOPICS : AI_TOPICS;
+  return `
+  <section class="detail-sec ai-sec">
+    <div class="detail-head"><h2>问 AI</h2><span class="detail-sub">提问文本 / 盘面图 · 粘贴给任意 AI 对话</span></div>
+    <div class="ai-card">
+      <div class="ai-tip">${he ? '两人合盘对照版，AI 解读双方关系走向' : '盘面已排好，AI 只做解读、不重新排盘'}。选关注方向（可不选，跳过即全面分析）：</div>
+      <div class="ai-chips">${topics.map((t) => `<button class="ai-chip" data-topic="${t}">${t}</button>`).join('')}</div>
+      <input type="text" class="ai-q" id="aiQuestion" placeholder="还想特别问点什么？（可留空，只随文本版带上）" maxlength="120">
+      <div class="ai-btns">
+        <button class="btn-go" id="btnAi">复制提问文本</button>
+        <button class="btn-go ghost" id="btnAiImg">生成盘面图</button>
+        <button class="btn-go ghost" id="btnAiLink">复制链接</button>
+      </div>
+      <div class="privacy" style="margin-top:9px">文本 / 图片 / 链接均含出生时间，发出前请知悉</div>
+    </div>
+  </section>`;
+}
+
+function aiToast(msg) {
+  let t = document.getElementById('aiToast');
+  if (!t) { t = document.createElement('div'); t.id = 'aiToast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+async function copyAiText(text, msg = '已复制 · 粘贴给任意 AI 即可解读') {
+  try {
+    await navigator.clipboard.writeText(text);
+    aiToast(msg);
+  } catch {
+    // 非安全上下文/旧浏览器降级
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) aiToast(msg);
+    else { aiToast('复制失败，全文已打印到控制台'); console.log(text); }
+  }
+}
+
+/* ---------- URL 分享：生辰编进 hash，开链即见此盘 ---------- */
+function writeHash() {
+  const q = new URLSearchParams();
+  const put = (k, c) => {
+    q.set(k + 'y', c.year); q.set(k + 'm', c.month); q.set(k + 'd', c.day);
+    q.set(k + 'h', c.hour); q.set(k + 'g', c.gender);
+  };
+  if (state.heResult) {
+    q.set('m', 'he');
+    put('a', state.heResult.A.input);
+    put('b', state.heResult.B.input);
+    if (state.heResult.A.input.tstOffsetMin) q.set('at', state.heResult.A.input.tstOffsetMin);
+    if (state.heResult.B.input.tstOffsetMin) q.set('bt', state.heResult.B.input.tstOffsetMin);
+  } else {
+    put('a', state.chart.input);
+    if (state.chart.input.tstOffsetMin) q.set('at', state.chart.input.tstOffsetMin);
+  }
+  if (state.calendar === 'lunar') q.set('cal', 'l');
+  if ((state.chart.input.sect ?? 2) !== 2) q.set('sect', state.chart.input.sect);
+  history.replaceState(null, '', `${location.pathname}#${q.toString()}`);
+}
+
+function parseHash() {
+  if (!location.hash || location.hash.length < 2) return null;
+  const q = new URLSearchParams(location.hash.slice(1));
+  const num = (k) => {
+    const v = q.get(k);
+    if (v === null || !/^-?\d+$/.test(v)) return null;
+    return +v;
+  };
+  const person = (k, gDef) => {
+    const y = num(k + 'y');
+    if (y === null) return null;
+    // 范围校验：坏链接不让 buildChart 抛异常（启动无 try/catch 会白屏）
+    const m = num(k + 'm'), d = num(k + 'd'), h = num(k + 'h');
+    if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 30 || h < 0 || h > 23) return null;
+    return {
+      year: y, month: m, day: d,
+      hour: h, minute: 0, gender: num(k + 'g') ?? gDef,
+      tstOffsetMin: num('a' === k ? 'at' : 'bt') || 0,
+    };
+  };
+  const cal = q.get('cal') === 'l' ? 'lunar' : 'solar';
+  const sect = num('sect') === 1 ? 1 : 2;
+  const A = person('a', 1);
+  if (!A) return null;
+  if (q.get('m') === 'he') {
+    const B = person('b', 0);
+    if (!B) return null;
+    return { mode: 'he', calendar: cal, sect, A: { ...A, calendar: cal, sect }, B: { ...B, calendar: cal, sect } };
+  }
+  return { mode: 'pan', calendar: cal, sect, A: { ...A, calendar: cal, sect } };
+}
+
+/* ---------- 盘面分享图（Canvas 手绘 → 预览浮层：复制图片 / 保存） ---------- */
+let shareCanvas = null;
+function openShareImage() {
+  // 合盘出双人对照卡；单盘出本命卡
+  shareCanvas = state.heResult ? buildHePanCard(state.heResult) : buildShareCard(state.chart);
+  let modal = document.getElementById('aiImgModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'aiImgModal';
+    modal.innerHTML = `
+      <div class="ai-img-in">
+        <button class="ai-img-close" aria-label="关闭">✕</button>
+        <img alt="命盘分享卡">
+        <div class="ai-img-btns">
+          <button class="btn-go" id="btnCopyImg">复制图片</button>
+          <button class="btn-go ghost" id="btnSaveImg">保存图片</button>
+        </div>
+        <p class="ai-img-tip"></p>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', async (e) => {
+      if (e.target === modal || e.target.closest('.ai-img-close')) { modal.classList.remove('open'); return; }
+      if (e.target.closest('#btnCopyImg') && shareCanvas) {
+        try {
+          const blob = await cardBlob(shareCanvas);
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          aiToast('图片已复制 · 粘贴进任意 AI 对话即可');
+        } catch {
+          aiToast('此浏览器不支持复制图片，请用「保存图片」');
+        }
+      }
+      if (e.target.closest('#btnSaveImg') && shareCanvas) {
+        const a = document.createElement('a');
+        a.href = cardDataUrl(shareCanvas);
+        // 注意：监听器只绑一次，文件名须实时读当前盘（不能闭包首次的 chart）
+        a.download = state.heResult
+          ? `命理合盘_${state.heResult.A.info.solarText.slice(0, 10)}_${state.heResult.B.info.solarText.slice(0, 10)}.png`
+          : `命理盘面_${state.chart.info.solarText.slice(0, 10)}.png`;
+        a.click();
+      }
+    });
+  }
+  modal.querySelector('img').src = cardDataUrl(shareCanvas);
+  modal.querySelector('.ai-img-tip').textContent =
+    `${state.heResult ? '双人对照卡 · ' : ''}复制图片后可直接粘进 AI 对话框，与提问文本同用效果更佳`;
+  modal.classList.add('open');
+}
+
+/* ---------- 流年详查抽屉内容 ---------- */
+function liuNianBody(d, chart) {
+  const dyTxt = d.dy
+    ? `此年行 <b>${d.dy.ganZhi}</b> 大运（天干${d.dy.shiShen}，${d.dy.startYear}–${d.dy.endYear}）`
+    : '此年超出已排大运范围（仅排 11 步），干支作用仍可参看';
+  const acts = d.acts.length
+    ? d.acts.map((a) => `<b>${a.text}</b>（落${a.pillar}，${a.luck}）——${a.note}。`).join('<br>')
+    : '流年与四柱无明显冲合刑害，平稳之象。';
+  const dyActs = d.dyActs.length
+    ? d.dyActs.map((a) => `<b>${a.text}</b>（${a.luck}）`).join('、')
+    : '与大运无明显冲合';
+  // 喜忌合参：流年干五行对照用神
+  const wxOf = GAN_WUXING[d.gz[0]];
+  const xi = chart.yongshen.congGe ? (chart.yongshen.tishiYong || []) : chart.yongshen.fuyi.yong;
+  const ji = chart.yongshen.fuyi.ji || [];
+  const xiNote = xi.includes(wxOf)
+    ? `流年干属<b>${wxOf}</b>，为<b>喜用</b>之神，顺境之年，谋事可进`
+    : ji.includes(wxOf) ? `流年干属<b>${wxOf}</b>，为<b>忌神</b>，逆境须守，投资扩张宜慎`
+    : `流年干属<b>${wxOf}</b>，五行中性，吉凶再看支上冲合`;
+  return `
+    <p>${dyTxt}。流年天干<b>${d.gz[0]}</b>对日主为<b>${d.ss}</b>（${SHI_SHEN_DESC[d.ss] || ''}），地支<b>${d.gz[1]}</b>（藏干本气）对日主为<b>${d.zhiSS}</b>。</p>
+    <p><b>喜忌</b>：${xiNote}。</p>
+    <p><b>与四柱作用</b>：<br>${acts}</p>
+    <p><b>与大运作用</b>：${dyActs}。</p>
+    ${d.notes.length ? `<p><b>断语提示</b>：<br>${d.notes.map(esc).join('<br>')}</p>` : ''}
+    <p style="color:var(--ink-faint)">断语只标「象」，吉凶以喜忌为准；岁运引动之应期，古法参《三命通会·论流年》。</p>`;
 }
 
 /* ---------- 释义抽屉 ---------- */
@@ -560,6 +747,7 @@ function render() {
       ${renderDetail(chart)}
       ${renderTishi(chart)}
       ${renderDayun(chart)}
+      ${renderAiAsk()}
       <div class="foot">传统命理文化 · 仅供研究参考</div>
     ` : `
       <div class="empty">
@@ -629,6 +817,35 @@ function bind() {
     maskCheck();
     river.addEventListener('scroll', maskCheck, { passive: true });
   }
+  // 流年详查：输入年份 → 抽屉出叠盘作用
+  const btnLn = $('#btnLn');
+  if (btnLn) {
+    const lookup = () => {
+      const y = +$('#inLnYear').value;
+      if (!y || y < 1900 || y > 2100) { aiToast('请输入 1900–2100 之间的年份'); return; }
+      const chart = curChart();
+      const d = liuNianDetail(chart, y);
+      openDrawer(`${d.gz} · ${d.year}流年`, `${d.ss} · ${d.age}岁（虚）`, liuNianBody(d, chart));
+    };
+    btnLn.addEventListener('click', lookup);
+    $('#inLnYear')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup(); });
+  }
+  // 问 AI：方向 chips 切换 + 文本复制 / 图片生成
+  const aiSec = $('.ai-sec');
+  if (aiSec) aiSec.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ai-chip');
+    if (chip) { chip.classList.toggle('on'); return; }
+    if (e.target.closest('#btnAiImg')) { openShareImage(); return; }
+    if (e.target.closest('#btnAiLink')) { copyAiText(location.href, '链接已复制 · 对方打开即见此盘'); return; }
+    if (e.target.closest('#btnAi')) {
+      const topics = [...aiSec.querySelectorAll('.ai-chip.on')].map((b) => b.dataset.topic);
+      const question = ($('#aiQuestion')?.value || '').trim();
+      const text = state.heResult
+        ? buildHePanPrompt(state.heResult, { topics, question })
+        : buildAiPrompt(state.chart, { topics, question });
+      copyAiText(text);
+    }
+  });
 }
 
 /* 读表单 → 起盘/合盘 */
@@ -675,16 +892,49 @@ function go() {
     state.viewPerson = 'A';
   }
   state.composeOpen = false;
+  writeHash();
   render();
 }
 
 /* ---------- 启动 ---------- */
-// 默认起一盘演示（今天此刻，男命）——空态太干，直接给用户看形态
-{
-  const n = new Date();
-  state.chart = buildChart({ year: n.getFullYear(), month: n.getMonth() + 1, day: n.getDate(), hour: n.getHours(), minute: 0, gender: 1 });
-  state.composeOpen = false;
+// 优先解析分享链接（#ay=…）；无链接再默认起一盘演示（今天此刻，男命）
+function bootFromHashOrDefault() {
+  let p = parseHash();
+  if (p) {
+    try {
+      state.calendar = p.calendar;
+      state._sect = p.sect;
+      const cA = buildChart(p.A);
+      if (p.mode === 'he') {
+        const cB = buildChart(p.B);
+        state.mode = 'he';
+        state.chart = cA;
+        state.heResult = { A: cA, B: cB, he: hePan(cA, cB) };
+      } else {
+        state.mode = 'pan';
+        state.heResult = null;
+        state.chart = cA;
+      }
+      state.composeOpen = false;
+    } catch {
+      p = null;   // 坏链接（如历法组合不存在）：回退默认演示盘，不让页面白屏
+    }
+  }
+  if (!p) {
+    const n = new Date();
+    state.mode = 'pan';
+    state.heResult = null;
+    state.chart = buildChart({ year: n.getFullYear(), month: n.getMonth() + 1, day: n.getDate(), hour: n.getHours(), minute: 0, gender: 1 });
+    state.composeOpen = false;
+  }
 }
+bootFromHashOrDefault();
+// 已打开页面里 hash 变化（如粘贴链接回车）也重排——goto 同页只改 hash 不重跑脚本
+window.addEventListener('hashchange', () => {
+  if (!parseHash()) return;   // writeHash 自己 replaceState 不触发 hashchange，此处只响应外部合法链接
+  bootFromHashOrDefault();
+  render();
+});
 render();
 // 抽屉点选委托只挂一次（render 会重写 app 内部，委托在 app 上不受影响）
 app.addEventListener('click', (e) => {

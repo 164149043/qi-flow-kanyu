@@ -12,6 +12,9 @@ import { detectGeJu } from '../src/mingli/core/geju.js';
 import { tiaohouOf, tongGenScore } from '../src/mingli/core/yongshen.js';
 import { equationOfTime, trueSolarOffset } from '../src/mingli/core/truesolar.js';
 import { hePan } from '../src/mingli/core/hepan.js';
+import { buildAiPrompt, buildHePanPrompt } from '../src/mingli/core/aiprompt.js';
+import { cardModel, hePanCardModel } from '../src/mingli/sharecard.js';
+import { liuNianDetail, yearGanZhi } from '../src/mingli/core/liunian.js';
 
 describe('十神 shiShen（以日主为我）', () => {
   it('己土日主四关系', () => {
@@ -374,5 +377,146 @@ describe('M5b · 提示卡从势修正', () => {
     const c = buildChart({ year: 1988, month: 8, day: 22, hour: 14, minute: 0, gender: 1 });
     expect(c.yongshen.congGe).toBe(false);
     expect(c.yongshen.tishiYong).toEqual(['火', '土']);
+  });
+});
+
+describe('问 AI · 提问文本生成 aiprompt', () => {
+  const chart = buildChart({ year: 1990, month: 5, day: 21, hour: 14, minute: 30, gender: 1 });
+  it('单盘：禁令/四柱/日主/格局/六书口径/收尾齐全', () => {
+    const t = buildAiPrompt(chart);
+    expect(t).toContain('不要自行重新排盘');
+    expect(t).toContain('师承子平体系：格局宗《子平真诠》');
+    expect(t).toContain(`日主${chart.dayGan}${chart.dayWuxing}`);
+    chart.pillars.forEach((p) => expect(t).toContain(p.gz));
+    expect(t).toContain('【格局】' + chart.geju.main);
+    expect(t).toContain('《子平真诠》');
+    expect(t).toContain('《滴天髓》');
+    expect(t).toContain('《神峰通考》');
+    expect(t).toContain('《穷通宝鉴》');
+    expect(t).toContain('现在请开始分析。');
+  });
+  it('裁剪：大运全带一行、流年仅当前步±2年', () => {
+    const t = buildAiPrompt(chart);
+    const nowYear = new Date().getFullYear();
+    expect(t).toMatch(/【大运】/);
+    expect(t).toMatch(new RegExp(`【近年流年】.*${nowYear}`));
+    const far = chart.dayun.list.filter((d) => d.ganZhi).at(-1).liuNian.map((l) => l.year);
+    far.filter((y) => Math.abs(y - nowYear) > 2).forEach((y) => {
+      expect(t).not.toContain(`${y}`);
+    });
+  });
+  it('方向聚焦：输出要求只剩勾选项，顺序跟勾选先后', () => {
+    const t = buildAiPrompt(chart, { topics: ['感情婚姻', '事业财运'] });
+    expect(t).toContain('感情与婚姻 → 事业与财运');
+    expect(t).not.toContain('性格与心性');
+    expect(t).not.toContain('健康提示');
+  });
+  it('不勾选＝全面分析；自定义问题进【我的问题】', () => {
+    const t = buildAiPrompt(chart, { question: '哪几年利事业？' });
+    expect(t).toContain('性格与心性 → 事业与财运');
+    expect(t).toContain('【我的问题】哪几年利事业？');
+  });
+  it('从势盘：用神行改推旺势，不写扶抑', () => {
+    const c2 = buildChart({ year: 1986, month: 7, day: 7, hour: 12, minute: 0, gender: 1 });
+    const t = buildAiPrompt(c2);
+    expect(t).toContain('从势之局');
+  });
+  it('合盘：两造/参考分/明细/合婚口径齐全', () => {
+    const A = buildChart({ year: 1990, month: 5, day: 21, hour: 14, minute: 30, gender: 1 });
+    const B = buildChart({ year: 1992, month: 6, day: 15, hour: 10, minute: 0, gender: 0 });
+    const hr = { A, B, he: hePan(A, B) };
+    const t = buildHePanPrompt(hr, { topics: ['相处建议'] });
+    expect(t).toContain('【甲方】');
+    expect(t).toContain('【乙方】');
+    expect(t).toContain(`参考分 ${hr.he.score}`);
+    expect(t).toContain('【对照明细】');
+    expect(t).toContain('《渊海子平·论合婚》');
+    expect(t).toContain('相处建议');
+    expect(t).not.toContain('性格互补与摩擦点');
+    expect(t).toContain('现在请开始解读。');
+  });
+});
+
+describe('问 AI · 盘面分享卡 cardModel', () => {
+  it('行模型：四柱/性别/口径/大运当前步/近年齐全', () => {
+    const c = buildChart({ year: 1990, month: 5, day: 21, hour: 14, minute: 30, gender: 1 });
+    const m = cardModel(c);
+    expect(m.gender).toBe('乾造');
+    expect(m.title).toContain('四柱排盘');
+    m.pillars.forEach((p) => {
+      expect(p.gan + p.zhi).toBe(c.pillars[m.pillars.indexOf(p)].gz);
+      expect(p.hide.length).toBeGreaterThan(0);
+    });
+    expect(m.koujing).toContain('晚子换日');
+    expect(m.dayun.filter((d) => d.cur).length).toBe(1);
+    expect(m.years).toContain(String(new Date().getFullYear()));
+    const labels = m.rows.map((r) => r[0]);
+    expect(labels).toContain('日主');
+    expect(labels).toContain('五行');
+    expect(labels).toContain('格局');
+    expect(labels).toContain('用神');
+  });
+  it('坤造/从势/真太阳时：性别与口径联动', () => {
+    const c2 = buildChart({ year: 1986, month: 7, day: 7, hour: 12, minute: 0, gender: 0, tstOffsetMin: 32 });
+    const m2 = cardModel(c2);
+    expect(m2.gender).toBe('坤造');
+    expect(m2.koujing).toContain('真太阳时+32分');
+    expect(m2.rows.find((r) => r[0] === '用神')[1]).toContain('从势');
+  });
+});
+
+describe('流年详查 liuNianDetail', () => {
+  const c = buildChart({ year: 1990, month: 5, day: 21, hour: 14, minute: 30, gender: 1 });
+  // 真值：庚午 辛巳 丙戌 乙未，日主丙，大运 壬午(1995)→…→乙酉(2025)→…
+  it('yearGanZhi 立春口径', () => {
+    expect(yearGanZhi(2026)).toBe('丙午');
+    expect(yearGanZhi(1990)).toBe('庚午');
+  });
+  it('2016丙申：巳申刑合并见 + 干合月干，行甲申运', () => {
+    const d = liuNianDetail(c, 2016);
+    expect(d.gz).toBe('丙申');
+    expect(d.ss).toBe('比肩');
+    expect(d.zhiSS).toBe('偏财');
+    expect(d.dy.ganZhi).toBe('甲申');
+    expect(d.acts.map((a) => a.text + '@' + a.pillar)).toEqual(['申合巳@月柱', '申刑巳@月柱', '丙合辛@月柱']);
+  });
+  it('2026丙午：年支伏吟 + 合时支', () => {
+    const d = liuNianDetail(c, 2026);
+    expect(d.acts.map((a) => a.text + '@' + a.pillar)).toEqual(['午伏吟午@年柱', '午合未@时柱', '丙合辛@月柱']);
+    expect(d.age).toBe(37);   // 虚岁 2026-1990+1
+  });
+  it('2033癸丑：正官年，害/冲/刑齐动', () => {
+    const d = liuNianDetail(c, 2033);
+    expect(d.ss).toBe('正官');
+    expect(d.acts.map((a) => a.text + '@' + a.pillar)).toEqual(['丑害午@年柱', '丑冲未@时柱', '丑刑戌@日柱', '丑刑未@时柱']);
+  });
+  it('天克地冲断语：庚子年冲日支午？→ 用冲提纲/断语分支各验一例', () => {
+    // 2021辛丑：丑冲未（时）已有；造冲提纲：亥年冲月支巳 → 2031辛亥
+    const d = liuNianDetail(c, 2031);
+    expect(d.notes.some((n) => n.includes('冲提纲'))).toBe(true);
+    // 天克地冲日柱：辰年冲日支戌，干克丙火 → 2042壬辰（壬水克丙✓ 辰戌冲✓）
+    const d2 = liuNianDetail(c, 2000);
+    expect(d2.notes.some((n) => n.includes('天克地冲'))).toBe(true);
+  });
+});
+
+describe('问 AI · 合盘对照卡 hePanCardModel', () => {
+  it('模型：两造/参考分/明细/口径齐全', () => {
+    const A = buildChart({ year: 1990, month: 5, day: 21, hour: 14, minute: 30, gender: 1 });
+    const B = buildChart({ year: 1992, month: 6, day: 15, hour: 10, minute: 0, gender: 0 });
+    const hr = { A, B, he: hePan(A, B) };
+    const m = hePanCardModel(hr);
+    expect(m.title).toContain('合盘对照');
+    expect(m.persons.map((p) => p.tag)).toEqual(['甲方', '乙方']);
+    expect(m.persons[0].gender).toBe('乾造（男）');
+    expect(m.persons[1].gender).toBe('坤造（女）');
+    m.persons.forEach((p) => {
+      expect(p.gzs.length).toBe(4);
+      p.gzs.forEach((g0, i) => expect(g0.gz).toBe([A, B][m.persons.indexOf(p)].pillars[i].gz));
+    });
+    expect(m.score).toBe(hr.he.score);
+    expect(m.items.length).toBe(hr.he.items.length);
+    expect(m.koujing).toContain('晚子换日');
+    expect(m.koujing).toContain('未启用真太阳时');
   });
 });

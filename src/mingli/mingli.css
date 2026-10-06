@@ -208,6 +208,19 @@ body {
 .dayun-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 2px 10px; }
 .dayun-head h2 { font-family: var(--kai); font-size: 17px; letter-spacing: 5px; }
 .dayun-head .dy-start { font-size: 12px; color: var(--ink-faint); }
+.dayun-head .dy-lookup { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.dayun-head .dy-lookup label { font-size: 12px; color: var(--ink-faint); letter-spacing: 2px; }
+.dayun-head .dy-lookup input {
+  width: 74px; font: inherit; font-size: 13px; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink);
+}
+.dayun-head .dy-lookup input:focus { outline: none; border-color: var(--zhu); }
+.dayun-head .dy-lookup button {
+  font: inherit; font-size: 12.5px; letter-spacing: 2px; color: var(--zhu);
+  background: none; border: 1px solid var(--zhu); border-radius: 6px; padding: 4px 12px; cursor: pointer;
+}
+.dayun-head .dy-lookup button:hover { background: var(--zhu-soft); }
+@media (max-width: 560px) { .dayun-head { flex-wrap: wrap; } .dayun-head .dy-lookup { margin-left: 0; } }
 .dayun-river {
   display: flex; gap: 0; overflow-x: auto; padding: 14px 10px 10px;
   background: var(--card); border: 1px solid var(--line); border-radius: 10px;
@@ -269,6 +282,71 @@ body {
 .drawer .d-body b { color: var(--ink); }
 .drawer .d-close { position: absolute; top: 10px; right: 14px; border: 0; background: none; font-size: 17px; color: var(--ink-faint); cursor: pointer; }
 .drawer .d-close:hover { color: var(--zhu); }
+
+/* ─── 问 AI（生成可粘贴的提问文本） ─── */
+.ai-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.ai-tip { font-size: 12.5px; color: var(--ink-dim); line-height: 1.7; }
+.ai-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
+.ai-chip {
+  font: inherit; font-size: 12.5px; letter-spacing: 1px; color: var(--ink-dim);
+  background: var(--paper); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 13px; cursor: pointer; transition: border-color .15s, color .15s;
+}
+.ai-chip:hover { border-color: var(--zhu); color: var(--ink); }
+.ai-chip.on { color: var(--zhu); border-color: var(--zhu); background: var(--zhu-soft); }
+.ai-q {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13.5px;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper); color: var(--ink);
+}
+.ai-q:focus { outline: none; border-color: var(--zhu); }
+.ai-q::placeholder { color: var(--ink-faint); }
+
+/* 问 AI 按钮组（三个出口可换行） */
+.ai-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.ai-btns .btn-go { padding: 9px 18px; }
+
+/* 次级按钮（ghost：纸底描边，与主按钮并排） */
+.btn-go.ghost {
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: none;
+}
+.btn-go.ghost:hover { filter: none; border-color: var(--zhu); color: var(--zhu); }
+
+/* 盘面图预览浮层（挂在 body 上，不随 render 重建） */
+#aiImgModal {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(38, 34, 44, .55);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#aiImgModal.open { display: flex; }
+.ai-img-in {
+  position: relative; background: var(--card); border-radius: 12px;
+  padding: 14px 14px 12px; max-width: min(92vw, 540px);
+  max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(38, 34, 44, .3);
+}
+.ai-img-in img { display: block; width: 100%; border-radius: 6px; border: 1px solid var(--line); }
+.ai-img-btns { display: flex; gap: 10px; margin-top: 12px; }
+.ai-img-btns .btn-go { flex: 1; }
+.ai-img-close {
+  position: absolute; top: 8px; right: 10px; z-index: 1;
+  border: 0; background: none; font-size: 17px; color: var(--ink-faint); cursor: pointer;
+}
+.ai-img-close:hover { color: var(--zhu); }
+.ai-img-tip { font-size: 11px; color: var(--ink-faint); margin-top: 8px; text-align: center; }
+
+/* 复制成功 toast（挂在 body 上，不随 render 重建） */
+#aiToast {
+  position: fixed; left: 50%; bottom: 36px; z-index: 90;
+  transform: translate(-50%, 14px);
+  background: var(--ink); color: var(--paper);
+  font-size: 13px; letter-spacing: 1px; padding: 9px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+#aiToast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ─── 空态（未起盘） ─── */
 .empty { text-align: center; padding: 60px 0 30px; color: var(--ink-faint); }
